@@ -350,14 +350,30 @@ router.post('/interview/:id', (req, res) => {
 router.post('/master/:id', async (req, res) => {
   try {
     const idea = getIdeaOr404(req.params.id);
-    if (!idea.research_pack) throw new HttpError(400, '請先生成 Research Pack');
     const db = getDb();
     const master = getMaster(idea.id);
     const interviewAnswers = master?.interview_answers || {};
 
+    // Allow generating master article directly even if step 1 (research_pack) was skipped!
+    const researchPack = idea.research_pack || {
+      central_insight: idea.title,
+      source_summary: idea.raw_notes || '由 Betty 親自提供的架構與筆記',
+      source_says: [],
+      research_suggests: ['依據教練對話核心與心理學認知重構架構'],
+      interpretation_space: ['尊重 Betty 的個人洞見與同行體驗'],
+      psychology_grounding: {
+        primary_framework: '正向心理學與認知重構 (Cognitive Reframing)',
+        theorists: ['Carl Rogers', 'Aaron Beck'],
+        theoretical_explanation: '從自我覺察、認知邊界與溫和重構出發，協助看見行為背後的正向意圖與保護機制。',
+        citations: []
+      },
+      key_concepts: [],
+      claims_to_verify: []
+    };
+
     const { masterArticle, clearReview } = await runJob(idea.id, '撰寫母文章', async onProgress => {
       onProgress(1, 2, '撰寫母文章（12 步架構）');
-      const article = await generateMasterArticle(idea, idea.research_pack, interviewAnswers);
+      const article = await generateMasterArticle(idea, researchPack, interviewAnswers);
       onProgress(2, 2, 'CLEAR 品質與倫理審查');
       const review = await runClearReview(article);
       return { masterArticle: article, clearReview: review };

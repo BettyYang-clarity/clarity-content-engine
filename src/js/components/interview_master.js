@@ -33,8 +33,23 @@ export function renderInterviewMaster(container, state, app) {
     ].filter(Boolean).join('\n\n');
   }
 
-  if (!currentIdea) {
-    container.innerHTML = `<div style="text-align: center; padding: 100px 20px; color: var(--text-muted);"><h3>請先在「靈感與學理研究」選擇或建立主題</h3></div>`;
+  // Topic switcher options
+  const ideas = state.ideas || [];
+
+  if (!currentIdea && ideas.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 100px 20px; color: var(--text-muted);">
+        <h3>💡 尚未建立任何主題</h3>
+        <p style="font-size: 14px; margin-top: 8px;">你可以直接點擊下方按鈕，在洞見母文直接建立新主題開始書寫：</p>
+        <button id="btn-quick-new-idea" class="btn btn-primary" style="margin-top: 14px;">+ 快速建立新主題</button>
+      </div>
+    `;
+    container.querySelector('#btn-quick-new-idea')?.addEventListener('click', async () => {
+      const title = prompt('請輸入文章主題（例如：討好型人格的邊界重塑）：');
+      if (title && title.trim()) {
+        await app.createIdea({ title: title.trim(), content_pillar: 'clarity', source_type: 'Observation' });
+      }
+    });
     return;
   }
 
@@ -45,15 +60,37 @@ export function renderInterviewMaster(container, state, app) {
     <div class="split-view interview-split-view">
       <div class="side-panel interview-panel">
         <div class="interview-panel-header">
-          <div>
-            <h3>🎙️ 個人洞見與筆記空間</h3>
-            <p class="section-desc" style="margin-bottom: 8px;">
-              隨性書寫、貼上 Gemini Notebook 架構，或上傳筆記與草圖。右側有教練思考提點，放手自由發揮。
-            </p>
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px;">
+            <h3 style="margin-bottom: 0;">🎙️ 個人洞見與筆記空間</h3>
+            <button id="btn-interview-new-topic" class="btn btn-outline btn-xs" title="直接新建主題，不需回第一步">+ 新主題</button>
           </div>
+          
+          <!-- Quick Topic Selector -->
+          <div class="form-group" style="margin-bottom: 10px;">
+            <label class="form-label" style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">目前主題：</label>
+            <select id="interview-topic-select" class="form-select" style="font-size: 13px; font-weight: 600; padding: 6px 10px;">
+              ${ideas.map(item => `
+                <option value="${esc(item.id)}" ${item.id === currentIdea?.id ? 'selected' : ''}>
+                  ${esc(item.title)} ${item.is_approved ? '✓' : ''}
+                </option>
+              `).join('')}
+            </select>
+          </div>
+
+          <p class="section-desc" style="margin-bottom: 8px;">
+            隨性書寫、貼上 Gemini Notebook 架構，或上傳筆記與草圖。右側有教練思考提點，放手自由發揮。
+          </p>
         </div>
 
-        ${!currentIdea.research_pack ? `<div class="source-banner cite-bad" style="margin-bottom: 12px;">⚠️ 尚未完成學理研究，請先回上一步完成 Research Pack</div>` : ''}
+        ${currentIdea?.research_pack ? `
+          <div class="source-banner cite-ok" style="margin-bottom: 8px; font-size: 12px; padding: 6px 10px;">
+            📚 已融合第一步驟之心理學文獻研究包
+          </div>
+        ` : `
+          <div class="source-banner" style="margin-bottom: 8px; font-size: 12px; padding: 6px 10px; background: #F3F4F6; color: #4B5563; border-color: #E5E7EB;">
+            💡 已獨立模式：可直接依據你的筆記架構生成母文，AI 會自動對齊正向心理學認知重構架構
+          </div>
+        `}
 
         <!-- Upload & Note Quick Actions -->
         <div class="note-upload-bar">
@@ -109,7 +146,7 @@ export function renderInterviewMaster(container, state, app) {
           </div>
 
           <div style="margin-top: 14px;">
-            <button type="submit" class="btn btn-primary btn-block" ${state.isProcessing || !currentIdea.research_pack ? 'disabled' : ''}>
+            <button type="submit" class="btn btn-primary btn-block" ${state.isProcessing ? 'disabled' : ''}>
               ${state.isProcessing ? '⏳ 正在依據筆記撰寫母文章與 CLEAR 審查...' : (hasArticle ? '🔄 依新筆記重新生成母文章' : '✨ 依筆記生成母文章（含 CLEAR 審查）')}
             </button>
             ${hasArticle ? `<p style="font-size: 11.5px; color: var(--text-muted); margin-top: 6px; text-align: center;">重新生成會覆蓋目前文章，舊版仍完整保留在版本紀錄中。</p>` : ''}
@@ -183,6 +220,25 @@ export function renderInterviewMaster(container, state, app) {
       </div>
     </div>
   `;
+
+  // Switch Topic directly in Interview tab
+  container.querySelector('#interview-topic-select')?.addEventListener('change', e => {
+    const id = e.target.value;
+    if (id) app.selectIdea(id);
+  });
+
+  // Create New Topic directly in Interview tab
+  container.querySelector('#btn-interview-new-topic')?.addEventListener('click', async () => {
+    const title = prompt('請輸入新主題標題（例如：高敏感者的情緒邊界練習）：');
+    if (title && title.trim()) {
+      await app.createIdea({
+        title: title.trim(),
+        content_pillar: 'clarity',
+        source_type: 'Observation',
+        raw_notes: '直接在洞見母文建立的主題'
+      });
+    }
+  });
 
   // Note File Import (.md / .txt)
   container.querySelector('#input-note-file')?.addEventListener('change', e => {
