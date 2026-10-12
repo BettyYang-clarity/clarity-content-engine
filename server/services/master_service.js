@@ -4,14 +4,43 @@ const brandConfig = require('../config/brand.json');
 /**
  * Generate Master Article based on Research Pack and Betty's Personal Input
  */
-async function generateMasterArticle(idea, researchPack, interviewAnswers) {
+async function generateMasterArticle(idea, researchPack, interviewAnswers, options = {}) {
   const grounding = researchPack.psychology_grounding || {};
   const citations = grounding.citations || (grounding.academic_citations || []).map(c => ({ citation: c, status: 'unverified' }));
   const usable = citations.filter(c => ['trusted', 'verified', 'corrected'].includes(c.status));
   const unconfirmed = citations.filter(c => !['trusted', 'verified', 'corrected'].includes(c.status));
 
+  // Determine if Betty provided flexible free_notes (e.g. from Gemini Notebook / NotebookLM) or traditional structured questions
+  const freeNotes = (interviewAnswers.free_notes || '').trim();
+  const hasFreeNotes = freeNotes.length > 0;
+
+  let bettyInputSection = '';
+  if (hasFreeNotes) {
+    bettyInputSection = `
+【Betty 親自撰寫的架構筆記與核心洞見（來自自由書寫 / Gemini Notebook 整理）】：
+"""
+${freeNotes}
+"""
+請將上述內容視為 Betty 本篇母文章的最核心靈魂與個人真誠觀點。
+請從中深刻萃取：
+- Betty 對此主題的真實價值觀與關切點
+- Betty 所提及的真實生活觀察或個案同行體驗（絕不編造未提及的情節）
+- Betty 想陪伴受眾看見的隱微盲點與溫和重構 (Reframe)
+- 可落地的微小行動或日常實驗
+`;
+  } else {
+    bettyInputSection = `
+【Betty 親自回答的 5 個核心洞見】：
+1. 為什麼這個主題對你重要？：${interviewAnswers.q1_importance || '無特定'}
+2. 你親身經歷或觀察到的具體生活案例？：${interviewAnswers.q2_experience || '無特定'}
+3. 你特別想破除、避免過度簡化的迷思是什麼？：${interviewAnswers.q3_oversimplification || '無特定'}
+4. 在教練對話中，你會陪伴個案最先看見什麼？：${interviewAnswers.q4_client_notice || '無特定'}
+5. 讀者今天就能嘗試的一個極微小實驗？：${interviewAnswers.q5_small_experiment || '無特定'}
+`;
+  }
+
   const prompt = `
-請以 Betty 的第一人稱專屬語氣，依據已審核的研究包（Research Pack）與 Betty 親自回答的個人洞見（Personal Input），撰寫一篇高品質、富有學理深度與溫度的【正體中文母文章】。
+請以 Betty 的第一人稱專屬語氣，依據已審核的研究包（Research Pack）與 Betty 親自提供的個人洞見與筆記，撰寫一篇高品質、富有學理深度與溫度的【正體中文母文章】。
 
 【主題與研究包背景】：
 - 主題：${idea.title}
@@ -28,12 +57,7 @@ ${usable.length ? usable.map(c => `- ${c.citation}`).join('\n') : '（無已查�
 【尚未查證的文獻（若使用，必須在該句後方標記 [VERIFY]）】：
 ${unconfirmed.length ? unconfirmed.map(c => `- ${c.citation}`).join('\n') : '（無）'}
 
-【Betty 親自回答的 5 個核心洞見】：
-1. 為什麼這個主題對你重要？：${interviewAnswers.q1_importance || '無特定'}
-2. 你親身經歷或觀察到的具體生活案例？：${interviewAnswers.q2_experience || '無特定'}
-3. 你特別想破除、避免過度簡化的迷思是什麼？：${interviewAnswers.q3_oversimplification || '無特定'}
-4. 在教練對話中，你會陪伴個案最先看見什麼？：${interviewAnswers.q4_client_notice || '無特定'}
-5. 讀者今天就能嘗試的一個極微小實驗？：${interviewAnswers.q5_small_experiment || '無特定'}
+${bettyInputSection}
 
 【母文章嚴格結構 (12 步架構)】：
 1. **Hook（共鳴開場）**：描繪一個受眾極有感、真實的情境或心聲。
@@ -41,7 +65,7 @@ ${unconfirmed.length ? unconfirmed.map(c => `- ${c.citation}`).join('\n') : '（
 3. **Pattern（隱微模式）**：揭示藏在表象底下的自動化運作模式。
 4. **Insight（核心重構）**：顛覆原先自我批判的一記清亮重構 (Reframe)。
 5. **Psychology Explanation（學理深度解析）**：精準帶入心理學理論（如 ${researchPack.psychology_grounding?.primary_framework || '心理學理論'}），用清晰易懂的語言解釋「為什麼大腦/身心會有這個反應」，並註明學理出處。
-6. **Betty's Observation（教練個人觀察與故事）**：融入 Betty 的真實觀察或生活案例，展現同行陪伴的溫度（絕不可無中生有捏造經歷）。
+6. **Betty's Observation（教練個人觀察與故事）**：融入 Betty 的真實觀察或生活案例，展現同行陪伴的溫度（絕不可無中生有捏造經歷）。若 Betty 筆記中未提及具體故事或案例，請留下 [VERIFY: 待 Betty 補充個人生活或個案微案例]。
 7. **Alternative Perspectives（多元視角與不確定性）**：避免單一歸因，採用可能語氣提醒其他可能情境。
 8. **Practical Options（2~3 個溫和且可落地的實踐方向）**。
 9. **Reflection Questions（深度自省引導題）**：留給讀者的教練式提問。
@@ -52,13 +76,33 @@ ${unconfirmed.length ? unconfirmed.map(c => `- ${c.citation}`).join('\n') : '（
 請撰寫完整的長文（約 1,000 ~ 1,500 字），段落呼吸感佳、排版優雅。
 
 【不可違反】
-- 若上方某題回答為「無特定」，不可替 Betty 編造該段經驗，請在該處寫「[VERIFY: 待 Betty 補充個人例子]」。
+- 若 Betty 的筆記或回答中缺少親身故事，不可替 Betty 編造經歷，必須在該處寫「[VERIFY: 待 Betty 補充個人例子]」。
 - Sources 段落只列「已查證文獻」與來源致謝；未查證的文獻若出現必須帶 [VERIFY]。
 `;
 
+  // Build parts if images or attachments are present
+  const images = interviewAnswers.images || options.images || [];
+  let parts = null;
+  if (Array.isArray(images) && images.length > 0) {
+    parts = [];
+    for (const img of images) {
+      if (img.data && img.mimeType) {
+        // base64 inline data
+        parts.push({
+          inlineData: {
+            mimeType: img.mimeType,
+            data: img.data.replace(/^data:[^;]+;base64,/, '')
+          }
+        });
+      }
+    }
+    parts.push({ text: prompt });
+  }
+
   return await callGemini({
-    prompt,
-    systemInstruction: "你是一位兼具文筆深度、心理學專業與教練同理心的資深編輯主筆。請嚴格根據提供的事實與故事撰寫，絕不捏造虛假個案隱私。",
+    prompt: parts ? undefined : prompt,
+    parts: parts || undefined,
+    systemInstruction: "你是一位兼具文筆深度、心理學專業與教練同理心的資深編輯主筆。請嚴格根據提供的事實、架構筆記與故事撰寫，絕不捏造虛假個案隱私。",
     temperature: 0.65,
     includeLearning: true
   });

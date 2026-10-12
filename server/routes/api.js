@@ -334,7 +334,7 @@ router.post('/interview/:id', (req, res) => {
     }
 
     // Betty's own example → story bank (one per topic, replaced when she edits it)
-    const story = (answers?.q2_experience || '').trim();
+    const story = (answers?.q2_experience || (answers?.free_notes ? answers.free_notes.slice(0, 500) : '')).trim();
     if (story) {
       upsertLibrary('story', idea.id, idea.title, story, 'interview');
     }

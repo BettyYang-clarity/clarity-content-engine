@@ -902,3 +902,163 @@ h3 {
   font-weight: 600;
   color: var(--text-muted, #4B5563);
 }
+
+/* Interview & Notes Workspace */
+.interview-split-view {
+  grid-template-columns: 460px 1fr;
+}
+
+@media (max-width: 1024px) {
+  .interview-split-view {
+    grid-template-columns: 1fr;
+  }
+}
+
+.interview-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.note-upload-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #F8FAFC;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  flex-wrap: wrap;
+}
+
+.notes-workspace {
+  min-height: 260px;
+  font-size: 14px;
+  line-height: 1.65;
+  background: #FCFDFD;
+  border-color: #D1D5DB;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.notes-workspace:focus {
+  background: #FFFFFF;
+  border-color: var(--primary);
+}
+
+.image-previews-container {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  background: #F9FAFB;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.image-preview-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.image-preview-chip img {
+  width: 28px;
+  height: 28px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.image-preview-chip .preview-name {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-main);
+}
+
+.btn-remove-image {
+  background: none;
+  border: none;
+  color: #9CA3AF;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+.btn-remove-image:hover {
+  color: #EF4444;
+}
+
+/* Coaching Hints Card */
+.coaching-hints-card {
+  background: #F0FDF4;
+  border: 1px solid #BBF7D0;
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  animation: fadeIn 0.2s ease;
+}
+
+.hints-card-header {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #166534;
+  margin-bottom: 8px;
+}
+
+.hints-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hint-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 6px;
+  padding: 6px 10px;
+  border: 1px solid rgba(187, 247, 208, 0.5);
+}
+
+.hint-icon {
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.hint-body strong {
+  display: block;
+  font-size: 12px;
+  color: #14532D;
+}
+
+.hint-body p {
+  font-size: 11.5px;
+  color: #374151;
+  margin: 2px 0 0 0;
+  line-height: 1.4;
+}
+
+.btn-text-link {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: inherit;
+  font-weight: 600;
+}
+
+.btn-text-link:hover {
+  background: rgba(52, 82, 67, 0.08);
+}
+
