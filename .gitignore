@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Database files (local data & SQLite WASM db)
+server/data/*.db
+server/data/*.db.tmp
+server/data/*.db-shm
+server/data/*.db-wal
+
+# Build output
+dist/
+
+# Environment & local credentials
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clarity Content Engine — 心理學社群與播客半自動化內容工作室</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&family=Noto+Serif+TC:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/css/style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Top Navigation Bar -->
+    <header class="navbar">
+      <div class="brand">
+        <div class="brand-logo">🌿</div>
+        <div class="brand-text">
+          <span class="brand-title">Clarity Content Engine</span>
+          <span class="brand-subtitle">半自動化社群與播客內容引擎 · Positive Psychology & Coaching</span>
+        </div>
+      </div>
+      <nav class="nav-links">
+        <button class="nav-tab active" data-tab="inbox">💡 靈感與學理研究</button>
+        <button class="nav-tab" data-tab="interview">✍️ 洞見訪談與母文</button>
+        <button class="nav-tab" data-tab="podcast">🎙️ 播客錄音室</button>
+        <button class="nav-tab" data-tab="social">📱 社群多平台矩陣</button>
+        <button class="nav-tab" data-tab="settings">⚙️ 設定與理論庫</button>
+      </nav>
+      <div class="nav-status" id="nav-status">
+        <span class="status-indicator"></span>
+        <span class="status-text" id="api-status-label">檢查中...</span>
+      </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="main-container">
+      <!-- Notification Banner -->
+      <div id="toast" class="toast hidden"></div>
+
+      <!-- Tab 1: Idea Inbox -->
+      <section id="tab-inbox" class="tab-pane active"></section>
+
+      <!-- Tab 2: Interview & Master Article -->
+      <section id="tab-interview" class="tab-pane"></section>
+
+      <!-- Tab 3: Podcast Studio -->
+      <section id="tab-podcast" class="tab-pane"></section>
+
+      <!-- Tab 4: Social Multiplier -->
+      <section id="tab-social" class="tab-pane"></section>
+
+      <!-- Tab 5: Settings & Frameworks -->
+      <section id="tab-settings" class="tab-pane"></section>
+    </main>
+  </div>
+
+  <script type="module" src="/src/js/app.js"></script>
+</body>
+</html>

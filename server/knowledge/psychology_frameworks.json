@@ -1,0 +1,93 @@
+{
+  "frameworks": [
+    {
+      "id": "cbt_cognitive_reframing",
+      "name": "認知行為理論與認知重塑 (CBT & Cognitive Reframing)",
+      "theorists": ["Aaron T. Beck", "Albert Ellis"],
+      "core_concepts": [
+        "自動化負向思考 (Automatic Negative Thoughts, ANTs)",
+        "災難化思考 (Catastrophizing)",
+        "非黑即白二分法 (All-or-Nothing Thinking)",
+        "認知重構 (Cognitive Restructuring)"
+      ],
+      "application_in_coaching": "協助客戶看見「情境、自動化想法、情緒、行為」的分離，跳脫過度反芻與思緒反轉。",
+      "reference_citation": "Beck, A. T. (1979). Cognitive Therapy of Depression. Guilford Press."
+    },
+    {
+      "id": "act_psychological_flexibility",
+      "name": "接納承諾治療與心理彈性 (ACT & Psychological Flexibility)",
+      "theorists": ["Steven C. Hayes"],
+      "core_concepts": [
+        "心理彈性六角模型 (Hexaflex)",
+        "認知脫鉤 (Cognitive Defusion)",
+        "接納開放 (Acceptance vs Avoidance)",
+        "價值觀導向行動 (Committed Action)"
+      ],
+      "application_in_coaching": "不再與糾結的想法對抗，而是退一步觀察想法，帶著不確定感朝向個人核心價值採取微小行動。",
+      "reference_citation": "Hayes, S. C., Strosahl, K. D., & Wilson, K. G. (2011). Acceptance and Commitment Therapy: The Process and Practice of Mindful Change. Guilford Press."
+    },
+    {
+      "id": "hsp_sps_theory",
+      "name": "高敏感與感覺處理敏感性 (Sensory Processing Sensitivity, SPS)",
+      "theorists": ["Elaine N. Aron", "Arthur Aron"],
+      "core_concepts": [
+        "DOES 模型 (深度處理 Depth of processing, 容易過度刺激 Overstimulation, 情緒反應性與同理心 Emotional reactivity/Empathy, 敏銳察覺細節 Sensing the subtle)",
+        "差異易感性 (Differential Susceptibility)",
+        "神經系統調節與過度負荷保護"
+      ],
+      "application_in_coaching": "協助高敏感族群停止將敏感視為缺陷，看見大腦處理模式的優勢，並設立環境降噪與能量保護邊界。",
+      "reference_citation": "Aron, E. N., & Aron, A. (1997). Sensory-processing sensitivity and its relation to introversion and emotionality. Journal of Personality and Social Psychology, 73(2), 345–368."
+    },
+    {
+      "id": "bowen_family_boundaries",
+      "name": "博溫家庭系統與人際分化 (Bowen Family Systems & Differentiation)",
+      "theorists": ["Murray Bowen"],
+      "core_concepts": [
+        "自我分化 (Differentiation of Self)",
+        "過度負責與低度負責模式 (Over-functioning / Under-functioning)",
+        "情緒三角化 (Triangulation)",
+        "人際邊界 (Boundaries) 與討好循環"
+      ],
+      "application_in_coaching": "辨識出「別人的情緒不是我的責任」，在緊密關係中守住自我邊界，停止拯救者模式與耗竭後怨懟。",
+      "reference_citation": "Bowen, M. (1978). Family Therapy in Clinical Practice. Jason Aronson."
+    },
+    {
+      "id": "self_determination_theory",
+      "name": "自我決定論 (Self-Determination Theory, SDT)",
+      "theorists": ["Edward L. Deci", "Richard M. Ryan"],
+      "core_concepts": [
+        "三種基本心理需求 (自主感 Autonomy, 勝任感 Competence, 歸屬感 Relatedness)",
+        "內在動機 vs 內化外在動機",
+        "無力感與心理滿足循環"
+      ],
+      "application_in_coaching": "探索目標背後的真正動力是出於「我想要」還是「社會或他人認為我應該」，重建自主掌握感。",
+      "reference_citation": "Deci, E. L., & Ryan, R. M. (2000). The 'what' and 'why' of goal pursuits: Human needs and the self-determination of behavior. Psychological Inquiry, 11(4), 227-268."
+    },
+    {
+      "id": "positive_psychology_perma",
+      "name": "正向心理學 PERMA 幸福模型與品格優勢",
+      "theorists": ["Martin Seligman", "Mihaly Csikszentmihalyi"],
+      "core_concepts": [
+        "PERMA (正向情緒 Positive Emotions, 全心投入 Engagement, 正向人際 Relationships, 生命意義 Meaning, 成就感 Accomplishment)",
+        "心流體驗 (Flow State)",
+        "品格優勢 (Character Strengths / VIA)",
+        "自我效能感 (Self-Efficacy, Albert Bandura)"
+      ],
+      "application_in_coaching": "著重在「如何讓健康的個體更蓬勃發展 (Flourishing)」，設計微小勝任感實驗，積累自信證據。",
+      "reference_citation": "Seligman, M. E. P. (2011). Flourish: A Visionary New Understanding of Happiness and Well-being. Free Press."
+    },
+    {
+      "id": "polyvagal_nervous_system",
+      "name": "多迷走神經理論與自律神經調節 (Polyvagal Theory)",
+      "theorists": ["Stephen Porges", "Deb Dana"],
+      "core_concepts": [
+        "腹側迷走神經 (安全與連結狀態 Safe & Social)",
+        "交感神經 (戰或逃 Fight or Flight / 焦慮內耗)",
+        "背側迷走神經 (凍結與當機 Freeze / 耗竭離線)",
+        "神經覺 (Neuroception)"
+      ],
+      "application_in_coaching": "理解身心卡關並非意志力薄弱，而是神經系統正在保護自己；先重拾安全感，再啟動理性思考與行動。",
+      "reference_citation": "Porges, S. W. (2011). The Polyvagal Theory: Neurophysiological Foundations of Emotions, Attachment, Communication, and Self-regulation. W. W. Norton & Company."
+    }
+  ]
+}
