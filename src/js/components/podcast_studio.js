@@ -27,9 +27,12 @@ export function renderPodcastStudio(container, state, app) {
           <h2>🎙️ 播客錄音室</h2>
           <div style="font-size: 13.5px; color: var(--text-muted); margin-top: 4px;">${esc(currentIdea.title)} · 重點提綱 / 逐字講稿 / Show Notes / NotebookLM</div>
         </div>
-        <button id="btn-generate-podcast" class="btn btn-primary" ${state.isProcessing ? 'disabled' : ''} style="white-space: nowrap;">
-          ${state.isProcessing ? '⏳ 編排中...' : (podcast ? '🔄 重新生成' : '✨ 生成播客工具包')}
-        </button>
+        <div style="display: flex; gap: 8px;">
+          <button id="btn-export-podcast-pkg" class="btn btn-export btn-sm" ${!podcast ? 'disabled' : ''} title="一鍵打包下載整合 Markdown">📦 匯出成果</button>
+          <button id="btn-generate-podcast" class="btn btn-primary" ${state.isProcessing ? 'disabled' : ''} style="white-space: nowrap;">
+            ${state.isProcessing ? '⏳ 編排中...' : (podcast ? '🔄 重新生成' : '✨ 生成播客工具包')}
+          </button>
+        </div>
       </div>
 
       ${podcast?.is_stale ? `<div class="source-banner cite-warn" style="margin-bottom: 14px;">⚠️ 這份播客內容是在母文章修改之前產生的，建議重新生成。</div>` : ''}
@@ -114,6 +117,7 @@ export function renderPodcastStudio(container, state, app) {
     });
   });
 
+  container.querySelector('#btn-export-podcast-pkg')?.addEventListener('click', () => app.exportIdeaPackage(currentIdea.id));
   container.querySelector('#btn-generate-podcast')?.addEventListener('click', () => app.generatePodcast(currentIdea.id));
 
   const copy = (sel, text, msg) => container.querySelector(sel)?.addEventListener('click', () => {

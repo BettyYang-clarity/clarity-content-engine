@@ -98,6 +98,7 @@ export function renderInterviewMaster(container, state, app) {
               <div style="display: flex; gap: 8px;">
                 <button id="btn-copy-master" class="btn btn-outline btn-sm">📋 複製全文</button>
                 <button id="btn-show-versions" class="btn btn-outline btn-sm">🕘 版本紀錄</button>
+                <button id="btn-export-pkg" class="btn btn-export btn-sm" title="一鍵打包下載整合 Markdown，並可自動同步至指定資料夾">📦 匯出成果</button>
               </div>
               <div style="display: flex; gap: 10px;">
                 <button id="btn-goto-podcast" class="btn btn-secondary btn-sm" ${!master.is_approved ? 'disabled title="需先核准母文章"' : ''}>🎙️ 播客錄音室 ➔</button>
@@ -158,6 +159,11 @@ export function renderInterviewMaster(container, state, app) {
   container.querySelector('#btn-copy-master')?.addEventListener('click', () => {
     navigator.clipboard.writeText(master.master_article);
     app.showToast('已複製母文章全文');
+  });
+
+  // Export
+  container.querySelector('#btn-export-pkg')?.addEventListener('click', () => {
+    app.exportIdeaPackage(currentIdea.id);
   });
 
   // Versions

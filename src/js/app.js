@@ -3,6 +3,7 @@ import { renderInterviewMaster } from './components/interview_master.js';
 import { renderPodcastStudio } from './components/podcast_studio.js';
 import { renderSocialMultiplier } from './components/social_multiplier.js';
 import { renderSettings } from './components/settings.js';
+import { api } from './utils.js';
 
 class App {
   constructor() {
@@ -13,13 +14,16 @@ class App {
       currentDetail: null,
       frameworks: [],
       brandConfig: null,
-      settings: { has_gemini_key: false },
+      settings: { has_gemini_key: false, export_dir: '' },
       trustedSources: [],
+      learningLibrary: [],
+      performanceLogs: [],
       isProcessing: false,
-      // UI-only state used by components (edit mode, sub-tabs)
+      activeProgress: null,
       ui: { editingMaster: false, podcastMode: 'talking', socialTab: 'ig' }
     };
 
+    this._progressPoller = null;
     this.init();
   }
 
@@ -60,8 +64,8 @@ class App {
 
   async loadInitialData() {
     try {
-      // 1. Load Settings
-      const settingsRes = await fetch('/api/settings').then(r => r.json());
+      // 1. Settings
+      const settingsRes = await api('/api/settings');
       if (settingsRes.success) {
         this.state.settings = settingsRes.data;
         const statusLabel = document.getElementById('api-status-label');
@@ -71,19 +75,22 @@ class App {
       }
 
       // 2. Load Frameworks & Brand & Trusted Sources
-      const fwRes = await fetch('/api/frameworks').then(r => r.json());
+      const fwRes = await api('/api/frameworks');
       if (fwRes.success) this.state.frameworks = fwRes.data;
 
-      const brandRes = await fetch('/api/brand-config').then(r => r.json());
+      const brandRes = await api('/api/brand-config');
       if (brandRes.success) this.state.brandConfig = brandRes.data;
-      
-      const trustedRes = await fetch('/api/trusted-sources').then(r => r.json());
+
+      const trustedRes = await api('/api/trusted-sources');
       if (trustedRes.success) this.state.trustedSources = trustedRes.data;
 
-      // 3. Load Ideas
+      // 3. Learning Library & Performance Logs
+      await this.loadLearningData();
+
+      // 4. Load Ideas
       await this.loadIdeas();
 
-      // 4. Pull new phone captures (silently) if the Google Form inbox is configured
+      // 5. Pull new phone captures (silently) if the Google Form inbox is configured
       if (this.state.settings.inbox_sheet_csv_url) this.syncInbox(true);
 
     } catch (err) {
@@ -92,9 +99,22 @@ class App {
     }
   }
 
+  async loadLearningData() {
+    try {
+      const [libRes, perfRes] = await Promise.all([
+        api('/api/library').catch(() => ({ success: false })),
+        api('/api/performance').catch(() => ({ success: false }))
+      ]);
+      if (libRes.success) this.state.learningLibrary = libRes.data || [];
+      if (perfRes.success) this.state.performanceLogs = perfRes.data || [];
+    } catch (e) {
+      console.warn('Failed to load learning/performance data:', e);
+    }
+  }
+
   async loadIdeas() {
     try {
-      const res = await fetch('/api/ideas').then(r => r.json());
+      const res = await api('/api/ideas');
       if (res.success) {
         this.state.ideas = res.data;
         if (!this.state.selectedIdeaId && this.state.ideas.length > 0) {
@@ -113,7 +133,7 @@ class App {
 
   async loadIdeaDetail(id) {
     try {
-      const res = await fetch(`/api/ideas/${id}`).then(r => r.json());
+      const res = await api(`/api/ideas/${id}`);
       if (res.success) {
         this.state.selectedIdeaId = id;
         this.state.currentDetail = res.data;
@@ -129,13 +149,69 @@ class App {
     await this.loadIdeaDetail(id);
   }
 
+  // --- Real-time Progress Polling Hook ---
+  startProgressPolling(ideaId, taskName) {
+    this.state.isProcessing = true;
+    this.state.activeProgress = { task: taskName, step: 0, total: 3, label: '啟動中...', elapsed_sec: 0 };
+    this.renderProgressModal();
+
+    if (this._progressPoller) clearInterval(this._progressPoller);
+    this._progressPoller = setInterval(async () => {
+      try {
+        const res = await api(`/api/progress/${ideaId}`).catch(() => null);
+        if (res && res.data) {
+          this.state.activeProgress = res.data;
+          this.renderProgressModal();
+        }
+      } catch (_) {}
+    }, 1200);
+  }
+
+  stopProgressPolling() {
+    if (this._progressPoller) {
+      clearInterval(this._progressPoller);
+      this._progressPoller = null;
+    }
+    this.state.isProcessing = false;
+    this.state.activeProgress = null;
+    this.renderProgressModal();
+  }
+
+  renderProgressModal() {
+    const container = document.getElementById('progress-container');
+    if (!container) return;
+
+    if (!this.state.isProcessing || !this.state.activeProgress) {
+      container.innerHTML = '';
+      return;
+    }
+
+    const { task, step = 0, total = 3, label = '處理中...', elapsed_sec = 0 } = this.state.activeProgress;
+    const pct = total > 0 ? Math.min(100, Math.round((step / total) * 100)) : 15;
+
+    container.innerHTML = `
+      <div class="progress-overlay">
+        <div class="progress-modal">
+          <div class="progress-header">
+            <div class="progress-spinner"></div>
+            <span class="progress-task-name">${task || 'Agent 正在運作'}</span>
+          </div>
+          <div class="progress-label">${label}</div>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" style="width: ${pct}%"></div>
+          </div>
+          <div class="progress-footer">
+            <span>進度：${step} / ${total}</span>
+            <span>已耗時：${elapsed_sec}s</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   async syncInbox(silent = false) {
     try {
-      const res = await fetch('/api/inbox/sync', { method: 'POST' }).then(r => r.json());
-      if (!res.success) {
-        if (!silent) this.showToast(`同步失敗: ${res.error}`);
-        return;
-      }
+      const res = await api('/api/inbox/sync', { method: 'POST' });
       if (!res.data.configured) {
         if (!silent) this.showToast('尚未設定手機表單：請到「設定」貼上試算表 CSV 連結');
         return;
@@ -154,19 +230,14 @@ class App {
   async createIdea(payload) {
     try {
       this.state.isProcessing = true;
-      const res = await fetch('/api/ideas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      }).then(r => r.json());
-
+      this.render();
+      const res = await api('/api/ideas', { method: 'POST', body: payload });
       if (res.success) {
-        this.showToast('靈感已記錄！');
+        this.showToast('✓ 靈感建立成功！');
         await this.loadIdeas();
-        this.state.selectedIdeaId = res.data.id;
         await this.loadIdeaDetail(res.data.id);
-      } else {
-        this.showToast(res.error || '新增失敗');
+        const form = document.getElementById('add-idea-form');
+        if (form) form.style.display = 'none';
       }
     } catch (err) {
       this.showToast(`錯誤: ${err.message}`);
@@ -178,72 +249,58 @@ class App {
 
   async runResearch(id) {
     try {
-      this.state.isProcessing = true;
-      this.render();
-      this.showToast('Research Agent 正在檢索文獻與心理學架構...');
-
-      const res = await fetch(`/api/research/${id}`, { method: 'POST' }).then(r => r.json());
+      this.startProgressPolling(id, 'Research Agent 學理查證');
+      const res = await api(`/api/research/${id}`, { method: 'POST' });
       if (res.success) {
         this.showToast('✓ 學理研究包已生成！');
         await this.loadIdeaDetail(id);
         await this.loadIdeas();
-      } else {
-        this.showToast(`生成失敗: ${res.error}`);
       }
     } catch (err) {
       this.showToast(`研究失敗: ${err.message}`);
     } finally {
-      this.state.isProcessing = false;
+      this.stopProgressPolling();
       this.render();
     }
   }
 
   async saveInterviewAndGenerateMaster(id, answers) {
     try {
-      this.state.isProcessing = true;
-      this.render();
-      this.showToast('正在儲存洞見並啟動 Master Writer Agent...');
+      // 1. Save interview answers first
+      await api(`/api/interview/${id}`, { method: 'POST', body: { answers } });
 
-      // 1. Save interview answers
-      await fetch(`/api/interview/${id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ answers })
-      });
-
-      // 2. Generate Master Article & CLEAR Review
-      this.showToast('正在撰寫 12 步母文章並進行 CLEAR 門禁審查...');
-      const res = await fetch(`/api/master/${id}`, { method: 'POST' }).then(r => r.json());
+      // 2. Start polled Master Article & CLEAR Review
+      this.startProgressPolling(id, 'Master Writer & CLEAR 審查');
+      const res = await api(`/api/master/${id}`, { method: 'POST' });
 
       if (res.success) {
         this.showToast('✓ 母文章與 CLEAR 審查完成！');
         await this.loadIdeaDetail(id);
         await this.loadIdeas();
-      } else {
-        this.showToast(`母文章生成失敗: ${res.error}`);
       }
     } catch (err) {
-      this.showToast(`處理失敗: ${err.message}`);
+      this.showToast(`母文章生成失敗: ${err.message}`);
     } finally {
-      this.state.isProcessing = false;
+      this.stopProgressPolling();
       this.render();
     }
   }
 
   async approveMaster(id, isApproved) {
     try {
-      const res = await fetch(`/api/master/${id}/approve`, {
+      const res = await api(`/api/master/${id}/approve`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_approved: isApproved })
-      }).then(r => r.json());
-
+        body: { is_approved: isApproved }
+      });
       if (res.success) {
-        this.showToast(isApproved ? '✓ 母文章已核准 (APPROVED)！已解鎖播客與社群倍增' : '已取消核准狀態');
+        let msg = isApproved ? '✓ 母文章已核准 (APPROVED)！已解鎖播客與社群倍增' : '已取消核准狀態';
+        if (res.voice_captured) {
+          msg += '（已將你的修訂存入專屬語氣範本庫！）';
+          await this.loadLearningData();
+        }
+        this.showToast(msg);
         await this.loadIdeaDetail(id);
         await this.loadIdeas();
-      } else {
-        this.showToast(`操作失敗: ${res.error}`);
       }
     } catch (err) {
       this.showToast(`操作失敗: ${err.message}`);
@@ -254,19 +311,15 @@ class App {
     try {
       this.state.isProcessing = true;
       this.render();
-      const res = await fetch(`/api/master/${id}`, {
+      const res = await api(`/api/master/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ master_article: content, note: versionNote })
-      }).then(r => r.json());
-
+        body: { master_article: content, note: versionNote }
+      });
       if (res.success) {
         this.state.ui.editingMaster = false;
         this.showToast(res.data?.unchanged ? '內容沒有變更' : '✓ 母文章已更新並儲存！建議按「重新審查」');
         await this.loadIdeaDetail(id);
         await this.loadIdeas();
-      } else {
-        this.showToast(`儲存失敗: ${res.error}`);
       }
     } catch (err) {
       this.showToast(`儲存失敗: ${err.message}`);
@@ -278,51 +331,43 @@ class App {
 
   async rerunClear(id) {
     try {
-      this.state.isProcessing = true;
-      this.render();
-      this.showToast('重新執行 CLEAR 門禁審查中...');
-      const res = await fetch(`/api/master/${id}/review`, { method: 'POST' }).then(r => r.json());
+      this.startProgressPolling(id, 'CLEAR 門禁審查');
+      const res = await api(`/api/master/${id}/review`, { method: 'POST' });
       if (res.success) {
         this.showToast('✓ CLEAR 審查完成！');
         await this.loadIdeaDetail(id);
-      } else {
-        this.showToast(`審查失敗: ${res.error}`);
       }
     } catch (err) {
       this.showToast(`審查失敗: ${err.message}`);
     } finally {
-      this.state.isProcessing = false;
+      this.stopProgressPolling();
       this.render();
     }
   }
 
   async loadVersions(id) {
     try {
-      const res = await fetch(`/api/master/${id}/versions`).then(r => r.json());
+      const res = await api(`/api/master/${id}/versions`);
       return res.success ? res.data : [];
     } catch (err) {
-      console.error('Failed to load versions', err);
+      this.showToast(`無法讀取版本紀錄: ${err.message}`);
       return [];
     }
   }
 
   async addTrustedSource(citation, note) {
     try {
-      const res = await fetch('/api/trusted-sources', {
+      const res = await api('/api/trusted-sources', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ citation, note })
-      }).then(r => r.json());
-
+        body: { citation, note }
+      });
       if (res.success) {
-        this.showToast('✓ 已加入信任清單');
-        const listRes = await fetch('/api/trusted-sources').then(r => r.json());
-        if (listRes.success) this.state.trustedSources = listRes.data;
+        this.showToast('✓ 已加入信任文獻清單');
+        const trustedRes = await api('/api/trusted-sources');
+        if (trustedRes.success) this.state.trustedSources = trustedRes.data;
         this.render();
         return true;
       }
-      this.showToast(`加入失敗: ${res.error}`);
-      return false;
     } catch (err) {
       this.showToast(`加入失敗: ${err.message}`);
       return false;
@@ -331,16 +376,14 @@ class App {
 
   async deleteTrustedSource(id) {
     try {
-      const res = await fetch(`/api/trusted-sources/${id}`, { method: 'DELETE' }).then(r => r.json());
+      const res = await api(`/api/trusted-sources/${id}`, { method: 'DELETE' });
       if (res.success) {
-        this.showToast('✓ 已移除信任清單');
-        const listRes = await fetch('/api/trusted-sources').then(r => r.json());
-        if (listRes.success) this.state.trustedSources = listRes.data;
+        this.showToast('已從信任清單移除');
+        const trustedRes = await api('/api/trusted-sources');
+        if (trustedRes.success) this.state.trustedSources = trustedRes.data;
         this.render();
         return true;
       }
-      this.showToast(`移除失敗: ${res.error}`);
-      return false;
     } catch (err) {
       this.showToast(`移除失敗: ${err.message}`);
       return false;
@@ -349,60 +392,178 @@ class App {
 
   async generatePodcast(id) {
     try {
-      this.state.isProcessing = true;
-      this.render();
-      this.showToast('Podcast Producer Agent 正在製作播客講稿與 Show Notes...');
-
-      const res = await fetch(`/api/podcast/${id}`, { method: 'POST' }).then(r => r.json());
+      this.startProgressPolling(id, 'Podcast Producer 製作播客');
+      const res = await api(`/api/podcast/${id}`, { method: 'POST' });
       if (res.success) {
         this.showToast('✓ 播客工具包已生成！');
         await this.loadIdeaDetail(id);
-      } else {
-        this.showToast(`播客生成失敗: ${res.error}`);
       }
     } catch (err) {
       this.showToast(`播客生成失敗: ${err.message}`);
     } finally {
-      this.state.isProcessing = false;
+      this.stopProgressPolling();
       this.render();
     }
   }
 
   async generateMultiplier(id) {
     try {
-      this.state.isProcessing = true;
-      this.render();
-      this.showToast('Social Multiplier Agent 正在為全社群平台調適矩陣...');
-
-      const res = await fetch(`/api/multiplier/${id}`, { method: 'POST' }).then(r => r.json());
+      this.startProgressPolling(id, 'Social Multiplier 社群調適');
+      const res = await api(`/api/multiplier/${id}`, { method: 'POST' });
       if (res.success) {
         this.showToast('✓ IG、FB、Threads、Blog 矩陣全數生成完畢！');
         await this.loadIdeaDetail(id);
         await this.loadIdeas();
-      } else {
-        this.showToast(`倍增失敗: ${res.error}`);
       }
     } catch (err) {
       this.showToast(`倍增失敗: ${err.message}`);
     } finally {
-      this.state.isProcessing = false;
+      this.stopProgressPolling();
       this.render();
+    }
+  }
+
+  // --- One-Click Studio Pipeline ---
+  async runOneClickStudio(id) {
+    if (!confirm('將為此靈感一鍵跑完「學理研究 ➔ 母文章初稿 ➔ CLEAR 審查」！\n生成完畢後你可以隨時精雕修改。確定開始？')) return;
+    try {
+      // 1. Research
+      this.startProgressPolling(id, '全自動工作室：1/2 學理查證');
+      await api(`/api/research/${id}`, { method: 'POST' });
+
+      // 2. Master Draft (default empty interview for draft generation)
+      this.startProgressPolling(id, '全自動工作室：2/2 母文起草與審查');
+      await api(`/api/master/${id}`, { method: 'POST' });
+
+      this.showToast('🎉 初稿已就緒！請切換至「洞見與母文」進行精雕與補充個人經驗');
+      await this.loadIdeaDetail(id);
+      await this.loadIdeas();
+      this.switchTab('interview');
+    } catch (err) {
+      this.showToast(`全自動生成失敗: ${err.message}`);
+    } finally {
+      this.stopProgressPolling();
+      this.render();
+    }
+  }
+
+  // --- One-Click Export to Markdown & Google Drive ---
+  async exportIdeaPackage(id) {
+    try {
+      this.showToast('正在打包專案成果...');
+      const res = await api(`/api/export/${id}`, { method: 'POST' });
+      if (res.success) {
+        const { file_name, saved_path, markdown } = res.data;
+
+        // Trigger browser automatic download of the unified Markdown file
+        const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = file_name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        let msg = `✓ 已下載 ${file_name}`;
+        if (saved_path) {
+          msg += `，並同步儲存至：${saved_path}`;
+        }
+        this.showToast(msg);
+      }
+    } catch (err) {
+      this.showToast(`匯出失敗: ${err.message}`);
+    }
+  }
+
+  // --- Learning Library & Performance Management ---
+  async addLibraryRule(category, title, content) {
+    try {
+      const res = await api('/api/library', {
+        method: 'POST',
+        body: { category, title, content }
+      });
+      if (res.success) {
+        this.showToast('✓ 已新增學習規則');
+        await this.loadLearningData();
+        this.render();
+      }
+    } catch (err) {
+      this.showToast(`新增失敗: ${err.message}`);
+    }
+  }
+
+  async toggleLibraryItem(id, isActive) {
+    try {
+      const res = await api(`/api/library/${id}`, {
+        method: 'PUT',
+        body: { is_active: isActive }
+      });
+      if (res.success) {
+        this.showToast(isActive ? '已啟用規則' : '已停用規則');
+        await this.loadLearningData();
+        this.render();
+      }
+    } catch (err) {
+      this.showToast(`更新失敗: ${err.message}`);
+    }
+  }
+
+  async deleteLibraryItem(id) {
+    try {
+      const res = await api(`/api/library/${id}`, { method: 'DELETE' });
+      if (res.success) {
+        this.showToast('已刪除項目');
+        await this.loadLearningData();
+        this.render();
+      }
+    } catch (err) {
+      this.showToast(`刪除失敗: ${err.message}`);
+    }
+  }
+
+  async logPerformance(ideaId, payload) {
+    try {
+      const res = await api(`/api/performance/${ideaId}`, {
+        method: 'POST',
+        body: payload
+      });
+      if (res.success) {
+        this.showToast('✓ 已記錄發布成效數據！');
+        await this.loadLearningData();
+        await this.loadIdeaDetail(ideaId);
+        this.render();
+      }
+    } catch (err) {
+      this.showToast(`記錄失敗: ${err.message}`);
+    }
+  }
+
+  async extractPerformanceLessons() {
+    try {
+      this.showToast('AI 正在深度複盤成效數據並萃取寫作法則...');
+      const res = await api('/api/library/extract-lessons', { method: 'POST' });
+      if (res.success) {
+        const count = res.data.added;
+        this.showToast(`🎉 成功萃取 ${count} 條專屬寫作法則！`);
+        await this.loadLearningData();
+        this.render();
+      }
+    } catch (err) {
+      this.showToast(`萃取失敗: ${err.message}`);
     }
   }
 
   async saveSettings(payload) {
     try {
-      const res = await fetch('/api/settings', {
+      const res = await api('/api/settings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      }).then(r => r.json());
-
+        body: payload
+      });
       if (res.success) {
         this.showToast('設定已成功儲存！');
         await this.loadInitialData();
-      } else {
-        this.showToast(`儲存失敗: ${res.error}`);
       }
     } catch (err) {
       this.showToast(`儲存失敗: ${err.message}`);
@@ -417,7 +578,7 @@ class App {
     clearTimeout(this._toastTimer);
     this._toastTimer = setTimeout(() => {
       toast.classList.add('hidden');
-    }, 3200);
+    }, 3600);
   }
 
   render() {

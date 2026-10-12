@@ -161,9 +161,14 @@ export function renderIdeaInbox(container, state, app) {
                 ${currentIdea.source_url ? ` · <a href="${safeUrl(currentIdea.source_url)}" target="_blank" rel="noopener" style="color: var(--primary);">來源連結 ↗</a>` : ''}
               </div>
             </div>
-            <button id="btn-run-research" class="btn btn-primary" ${state.isProcessing ? 'disabled' : ''} style="white-space: nowrap;">
-              ${state.isProcessing ? '⏳ 讀取來源與查證中...' : (pack ? '🔄 重新研究' : '🔍 開始研究')}
-            </button>
+            <div style="display: flex; gap: 8px;">
+              <button id="btn-one-click-studio" class="btn btn-studio" ${state.isProcessing ? 'disabled' : ''} style="white-space: nowrap;" title="一鍵自動完成研究、起草母文與 CLEAR 審查，之後隨時可精雕">
+                ⚡ 一鍵生成初稿
+              </button>
+              <button id="btn-run-research" class="btn btn-primary" ${state.isProcessing ? 'disabled' : ''} style="white-space: nowrap;">
+                ${state.isProcessing ? '⏳ 處理中...' : (pack ? '🔄 重新研究' : '🔍 開始研究')}
+              </button>
+            </div>
           </div>
 
           ${pack ? `
@@ -262,6 +267,7 @@ export function renderIdeaInbox(container, state, app) {
     card.addEventListener('click', () => app.selectIdea(card.dataset.id));
   });
 
+  container.querySelector('#btn-one-click-studio')?.addEventListener('click', () => app.runOneClickStudio(currentIdea.id));
   container.querySelector('#btn-run-research')?.addEventListener('click', () => app.runResearch(currentIdea.id));
   container.querySelector('#btn-go-to-interview')?.addEventListener('click', () => app.switchTab('interview'));
 }

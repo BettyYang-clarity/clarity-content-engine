@@ -130,15 +130,17 @@ router.get('/settings', (req, res) => {
     data: {
       has_gemini_key: !!(key || process.env.GEMINI_API_KEY),
       masked_key: key ? `${key.substring(0, 4)}••••••••${key.substring(key.length - 4)}` : null,
-      inbox_sheet_csv_url: getSetting('inbox_sheet_csv_url') || ''
+      inbox_sheet_csv_url: getSetting('inbox_sheet_csv_url') || '',
+      export_dir: getSetting('export_dir') || ''
     }
   });
 });
 
 router.post('/settings', (req, res) => {
   try {
-    const { gemini_api_key, inbox_sheet_csv_url } = req.body;
+    const { gemini_api_key, inbox_sheet_csv_url, export_dir } = req.body;
     if (gemini_api_key !== undefined) setSetting('gemini_api_key', gemini_api_key.trim());
+    if (export_dir !== undefined) setSetting('export_dir', export_dir.trim());
     if (inbox_sheet_csv_url !== undefined) {
       const url = inbox_sheet_csv_url.trim();
       if (url && !isPublishedCsvUrl(url)) {

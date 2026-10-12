@@ -41,9 +41,12 @@ export function renderSocialMultiplier(container, state, app) {
           <h2>📱 社群多平台矩陣</h2>
           <div style="font-size: 13.5px; color: var(--text-muted); margin-top: 4px;">Instagram 輪播 · Facebook · Threads × 3 · Blog</div>
         </div>
-        <button id="btn-generate-multiplier" class="btn btn-accent" ${state.isProcessing ? 'disabled' : ''} style="white-space: nowrap;">
-          ${state.isProcessing ? '⏳ 生成中...' : (outputs.length ? '🔄 重新生成' : '✨ 生成各平台內容')}
-        </button>
+        <div style="display: flex; gap: 8px;">
+          <button id="btn-export-social-pkg" class="btn btn-export btn-sm" ${!outputs.length ? 'disabled' : ''} title="一鍵打包下載整合 Markdown">📦 匯出成果</button>
+          <button id="btn-generate-multiplier" class="btn btn-accent" ${state.isProcessing ? 'disabled' : ''} style="white-space: nowrap;">
+            ${state.isProcessing ? '⏳ 生成中...' : (outputs.length ? '🔄 重新生成' : '✨ 生成各平台內容')}
+          </button>
+        </div>
       </div>
 
       ${isStale ? `<div class="source-banner cite-warn" style="margin-bottom: 14px;">⚠️ 這些內容是在母文章修改之前產生的，建議重新生成。</div>` : ''}
@@ -134,6 +137,7 @@ export function renderSocialMultiplier(container, state, app) {
     });
   });
 
+  container.querySelector('#btn-export-social-pkg')?.addEventListener('click', () => app.exportIdeaPackage(currentIdea.id));
   container.querySelector('#btn-generate-multiplier')?.addEventListener('click', () => app.generateMultiplier(currentIdea.id));
 
   const copyText = (text, msg) => { navigator.clipboard.writeText(text || ''); app.showToast(msg); };
