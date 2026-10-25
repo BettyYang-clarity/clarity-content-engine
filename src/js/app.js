@@ -249,10 +249,10 @@ class App {
 
   async runResearch(id) {
     try {
-      this.startProgressPolling(id, 'Research Agent 學理查證');
+      this.startProgressPolling(id, 'Research Agent 跨領域佐證查證');
       const res = await api(`/api/research/${id}`, { method: 'POST' });
       if (res.success) {
-        this.showToast('✓ 學理研究包已生成！');
+        this.showToast('✓ 佐證研究包已生成！');
         await this.loadIdeaDetail(id);
         await this.loadIdeas();
       }
@@ -425,10 +425,10 @@ class App {
 
   // --- One-Click Studio Pipeline ---
   async runOneClickStudio(id) {
-    if (!confirm('將為此靈感一鍵跑完「學理研究 ➔ 母文章初稿 ➔ CLEAR 審查」！\n生成完畢後你可以隨時精雕修改。確定開始？')) return;
+    if (!confirm('將為此靈感一鍵跑完「佐證研究 ➔ 母文章初稿 ➔ CLEAR 審查」！\n生成完畢後你可以隨時精雕修改。確定開始？')) return;
     try {
       // 1. Research
-      this.startProgressPolling(id, '全自動工作室：1/2 學理查證');
+      this.startProgressPolling(id, '全自動工作室：1/2 佐證查證');
       await api(`/api/research/${id}`, { method: 'POST' });
 
       // 2. Master Draft (default empty interview for draft generation)

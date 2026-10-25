@@ -30,7 +30,7 @@ export function renderSettings(container, state, app) {
           設定本地資料夾路徑（例如 Google Drive 電腦版同步資料夾 <code>G:\\我的雲端硬碟\\ClarityPosts</code> 或 Obsidian 筆記庫）。點擊「匯出成果」時除了自動下載，還會直接存入該資料夾。
         </p>
         <div style="display: flex; gap: 10px;">
-          <input type="text" id="export-dir-input" class="form-input" placeholder="例如：D:\\BettyCoach\\GoogleDrive\\Posts" value="${esc(state.settings?.export_dir || '')}">
+          <input type="text" id="export-dir-input" class="form-input" placeholder="例如：D:\\MyWriting\\GoogleDrive\\Posts" value="${esc(state.settings?.export_dir || '')}">
           <button id="btn-save-export-dir" class="btn btn-primary" style="white-space: nowrap;">儲存路徑</button>
         </div>
       </div>
@@ -51,7 +51,7 @@ export function renderSettings(container, state, app) {
       <div class="info-card" style="margin-bottom: 24px;">
         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
           <div>
-            <h3 style="color: var(--primary); margin-bottom: 4px;">🧠 教練專屬學習庫 (Learning Library)</h3>
+            <h3 style="color: var(--primary); margin-bottom: 4px;">🧠 我的寫作學習庫 (Learning Library)</h3>
             <p style="font-size: 13px; color: var(--text-muted);">
               包含你的手動寫作規則 (rule)、親筆修訂語氣範本 (voice) 與 AI 從成效數據自動萃取的法則 (lesson)。生成母文與社群時會自動注入！
             </p>
@@ -176,8 +176,8 @@ export function renderSettings(container, state, app) {
 
       <!-- Section 7: Theoretical Frameworks -->
       <div class="info-card" style="margin-bottom: 24px;">
-        <h3 style="color: var(--primary); margin-bottom: 8px;">📚 內建理論架構（${frameworks.length}）</h3>
-        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">研究時用來對齊主題的理論地圖（引用以上方清單與搜尋查證為準）。</p>
+        <h3 style="color: var(--primary); margin-bottom: 8px;">📚 心理學選配參考庫（${frameworks.length}）</h3>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">僅在主題與心理相關時作為可選參考，不會限制其他領域的主題（研究步驟會跨領域搜尋佐證）。</p>
         <div style="display: flex; flex-direction: column; gap: 10px;">
           ${frameworks.map(f => `
             <div style="background: #F9FAFB; border: 1px solid var(--border); border-radius: 8px; padding: 12px;">

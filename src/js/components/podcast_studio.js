@@ -46,7 +46,7 @@ export function renderPodcastStudio(container, state, app) {
         <div class="podcast-titles-grid">
           <div class="title-card"><div class="title-card-type">🔥 吸睛型</div><div class="title-card-text">${esc(podcast.titles?.catchy_title)}</div></div>
           <div class="title-card"><div class="title-card-type">🌿 反思型</div><div class="title-card-text">${esc(podcast.titles?.reflective_title)}</div></div>
-          <div class="title-card"><div class="title-card-type">📚 學理型</div><div class="title-card-text">${esc(podcast.titles?.academic_title)}</div></div>
+          <div class="title-card"><div class="title-card-type">📚 知識型</div><div class="title-card-text">${esc(podcast.titles?.academic_title)}</div></div>
         </div>
 
         <div class="info-card" style="margin-bottom: 20px; background: #FAF9F6; border-left: 4px solid var(--accent);">
@@ -86,8 +86,8 @@ export function renderPodcastStudio(container, state, app) {
             <h4 style="margin: 16px 0 8px; color: var(--primary);">⏱️ 時間軸（錄完後請依實際時間調整）</h4>
             <ul style="padding-left: 18px; font-size: 13px;">${(podcast.show_notes?.timestamps || []).map(t => `<li>${esc(t)}</li>`).join('')}</ul>
             <h4 style="margin: 16px 0 8px; color: #4F46E5;">📚 參考資料</h4>
-            <ul style="padding-left: 18px; font-size: 13px;">${(podcast.show_notes?.psychology_references || []).map(r => `<li>${esc(r)}</li>`).join('')}</ul>
-            <h4 style="margin: 16px 0 8px; color: var(--accent);">💭 課後練習題</h4>
+            <ul style="padding-left: 18px; font-size: 13px;">${(podcast.show_notes?.references || podcast.show_notes?.psychology_references || []).map(r => `<li>${esc(r)}</li>`).join('')}</ul>
+            <h4 style="margin: 16px 0 8px; color: var(--accent);">💭 留給聽眾的思考</h4>
             <p style="font-size: 13.5px; font-weight: 600; color: var(--accent);">${esc(podcast.show_notes?.reflection_question_for_listener)}</p>
           </div>
         ` : ''}
@@ -131,8 +131,8 @@ export function renderPodcastStudio(container, state, app) {
     const text = [
       sn.summary, '',
       '⏱️ 時間軸', ...(sn.timestamps || []), '',
-      '📚 參考資料', ...(sn.psychology_references || []), '',
-      '💭 課後練習', sn.reflection_question_for_listener || '', '',
+      '📚 參考資料', ...(sn.references || sn.psychology_references || []), '',
+      '💭 留給聽眾的思考', sn.reflection_question_for_listener || '', '',
       sn.host_links_and_cta || ''
     ].join('\n');
     copy('#btn-copy-shownotes', text, '已複製 Show Notes');

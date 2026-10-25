@@ -10,14 +10,6 @@ const STATUS_LABELS = {
   MULTIPLIED: '全平台已倍增'
 };
 
-const PILLARS = {
-  clarity: 'Clarity 認知釐清',
-  confidence: 'Confidence 自信效能',
-  hsp: 'HSP 高敏感特質',
-  boundaries: 'Boundaries 心理邊界',
-  growth: 'Positive Psychology 正向心理'
-};
-
 const SOURCE_STATUS = {
   youtube: { icon: '🎬', cls: 'cite-ok' },
   web: { icon: '🌐', cls: 'cite-ok' },
@@ -94,12 +86,7 @@ export function renderIdeaInbox(container, state, app) {
 
         <div id="add-idea-form" class="info-card" style="margin-bottom: 14px; display: none;">
           <div class="form-group">
-            <input type="text" id="new-idea-title" class="form-input" placeholder="主題或工作標題（例：討好型人格的邊界陷阱）">
-          </div>
-          <div class="form-group">
-            <select id="new-idea-pillar" class="form-select">
-              ${Object.entries(PILLARS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}
-            </select>
+            <input type="text" id="new-idea-title" class="form-input" placeholder="主題或工作標題（例：為什麼開會越多決策越慢）">
           </div>
           <div class="form-group">
             <select id="new-idea-type" class="form-select">
@@ -138,7 +125,7 @@ export function renderIdeaInbox(container, state, app) {
                 <span class="badge badge-${esc((item.status || '').toLowerCase())}">${esc(getStatusLabel(item.status))}</span>
               </div>
               <div style="display: flex; justify-content: space-between; font-size: 11.5px; color: var(--text-muted);">
-                <span>${esc(PILLARS[item.content_pillar] || item.content_pillar)}</span>
+                <span>${esc(item.source_type || '觀察')}</span>
                 <span>${esc(item.created_at ? item.created_at.slice(5, 10) : '')}</span>
               </div>
             </div>
@@ -157,7 +144,7 @@ export function renderIdeaInbox(container, state, app) {
               <span class="badge badge-${esc(currentIdea.status.toLowerCase())}" style="margin-bottom: 6px;">${esc(getStatusLabel(currentIdea.status))}</span>
               <h2>${esc(currentIdea.title)}</h2>
               <div style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">
-                支柱：<strong>${esc(PILLARS[currentIdea.content_pillar] || currentIdea.content_pillar)}</strong>
+                來源類型：<strong>${esc(currentIdea.source_type || '觀察')}</strong>
                 ${currentIdea.source_url ? ` · <a href="${safeUrl(currentIdea.source_url)}" target="_blank" rel="noopener" style="color: var(--primary);">來源連結 ↗</a>` : ''}
               </div>
             </div>
@@ -201,9 +188,10 @@ export function renderIdeaInbox(container, state, app) {
               </div>
 
               <div class="info-card" style="border-left: 4px solid #4F46E5;">
-                <div class="info-card-header" style="color: #4F46E5;"><span>📚 學理依據與文獻查證</span></div>
-                <span class="academic-badge">${esc(grounding.primary_framework || '心理學理論')}</span>
-                <div style="font-size: 13px; margin-bottom: 8px;"><strong>代表學者：</strong>${esc((grounding.theorists || []).join(', '))}</div>
+                <div class="info-card-header" style="color: #4F46E5;"><span>📚 佐證與依據（跨領域文獻查證）</span></div>
+                <span class="academic-badge">${esc(grounding.primary_framework || '個人觀察與佐證')}</span>
+                ${(grounding.fields || []).length ? `<div style="font-size: 12.5px; color: var(--text-muted); margin-bottom: 4px;">相關領域：${esc(grounding.fields.join('、'))}</div>` : ''}
+                ${(grounding.theorists || []).length ? `<div style="font-size: 13px; margin-bottom: 8px;"><strong>相關作者 / 來源：</strong>${esc((grounding.theorists || []).join(', '))}</div>` : ''}
                 <div style="font-size: 13.5px; line-height: 1.6; margin-bottom: 12px;">${esc(grounding.theoretical_explanation)}</div>
                 ${renderCitations(grounding)}
               </div>
@@ -233,7 +221,7 @@ export function renderIdeaInbox(container, state, app) {
             <div style="text-align: center; padding: 60px 20px; border: 2px dashed var(--border); border-radius: 10px;">
               <p style="font-size: 14px; color: var(--text-muted);">尚未研究。</p>
               <p style="font-size: 12.5px; color: var(--text-light); margin-top: 4px;">
-                會依序：讀取來源內容 → 對齊心理學理論 → 用 Google 搜尋逐條查證文獻（約 30–90 秒）
+                會依序：讀取來源內容 → 尋找跨領域佐證 → 用 Google 搜尋逐條查證來源（約 30–90 秒）
               </p>
             </div>
           `}
@@ -255,7 +243,6 @@ export function renderIdeaInbox(container, state, app) {
     if (!title) return app.showToast('請輸入主題或工作標題');
     await app.createIdea({
       title,
-      content_pillar: container.querySelector('#new-idea-pillar').value,
       source_type: container.querySelector('#new-idea-type').value,
       source_url: container.querySelector('#new-idea-url').value.trim(),
       author: container.querySelector('#new-idea-author').value.trim(),

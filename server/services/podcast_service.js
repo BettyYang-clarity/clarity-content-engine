@@ -24,11 +24,11 @@ async function generatePodcastPackage(idea, researchPack, masterArticle, onProgr
   onProgress(1, 3, '規劃節目大綱與標題');
   const blueprint = await callGemini({
     prompt: `
-請根據母文章，規劃一集 Betty 單人主持的教練 Podcast 大綱。${materialRule}
+請根據母文章，規劃一集 Betty 單人主持的個人分享 Podcast 大綱（第一人稱、像跟朋友聊天的口吻，不是上課或教練節目）。${materialRule}
 
 <topic>${idea.title}</topic>
 <central_insight>${researchPack.central_insight || ''}</central_insight>
-<framework>${grounding.primary_framework || '正向心理學'}</framework>
+<framework>${grounding.primary_framework || ''}</framework>
 <master_article>
 ${masterArticle}
 </master_article>
@@ -38,7 +38,7 @@ ${masterArticle}
   "titles": {
     "catchy_title": "吸睛好奇型單集標題",
     "reflective_title": "溫柔反思型單集標題",
-    "academic_title": "心理學學理型單集標題"
+    "academic_title": "知識型單集標題（點出背後的研究或概念）"
   },
   "opening_hook": "錄音前 30 秒的開場引言（一句話擊中痛點）",
   "talking_points": [
@@ -77,8 +77,9 @@ ${masterArticle}
 </master_article>
 
 規則：
-- 逐字稿採 Betty 第一人稱口語，溫暖自然，可加入 [微停頓]、[放慢] 等聲音提示，約 1,800–2,500 字，依大綱分段並用 Markdown 小標題標示段落。
+- 逐字稿採第一人稱「我」的分享口語，溫暖自然，像跟朋友聊天；不自稱教練或老師、不說教，可加入 [微停頓]、[放慢] 等聲音提示，約 1,800–2,500 字，依大綱分段並用 Markdown 小標題標示段落。
 - 只能使用母文章中出現的故事與研究；不可新增個人經歷或文獻。
+- 結尾邀請聽眾留言分享或訂閱追蹤；不可提及任何教練、諮詢或付費服務。
 - NotebookLM 筆記用 Markdown，包含章節標題、名詞定義、核心問題，適合上傳後產生「語音摘要」。
 
 請回傳 JSON：
@@ -86,7 +87,7 @@ ${masterArticle}
   "full_script": "Markdown 逐字稿",
   "notebooklm_export": "Markdown 筆記"
 }`,
-    systemInstruction: '你是 Podcast 口語表達教練與作家，擅長把文章轉為自然的口說稿。只輸出合法 JSON。',
+    systemInstruction: '你是 Podcast 口語表達顧問與作家，擅長把文章轉為自然的第一人稱分享口說稿。只輸出合法 JSON。',
     temperature: 0.7,
     jsonMode: true,
     includeLearning: true
@@ -108,15 +109,16 @@ ${masterArticle}
 
 規則：
 - timestamps 必須依照 <episode_outline> 的段落與起始時間，不可新增段落。
-- psychology_references 只能列出 <verified_citations> 中的項目；若為「無已查證文獻」則回傳空陣列。
+- references 只能列出 <verified_citations> 中的項目；若為「無已查證文獻」則回傳空陣列。
+- host_links_and_cta 只能邀請留言、分享、訂閱/追蹤；不可提及任何教練、諮詢、諮商或付費服務。
 
 請回傳 JSON：
 {
-  "summary": "150 字左右的節目介紹，適合 Apple Podcasts / Spotify",
+  "summary": "150 字左右的節目介紹，適合 Apple Podcasts / Spotify（第一人稱分享口吻）",
   "timestamps": ["00:00 段落標題"],
-  "psychology_references": ["已查證文獻（附一句推薦閱讀說明）"],
-  "reflection_question_for_listener": "留給聽眾的一道練習題",
-  "host_links_and_cta": "預約教練會談 / 社群追蹤提示"
+  "references": ["已查證的參考資料（附一句推薦閱讀說明）"],
+  "reflection_question_for_listener": "留給聽眾的一個思考問題（邀請式）",
+  "host_links_and_cta": "邀請留言分享 / 訂閱追蹤的提示"
 }`,
     systemInstruction: '你負責撰寫 Podcast Show Notes，嚴格遵守文獻查證限制。只輸出合法 JSON。',
     temperature: 0.5,

@@ -240,7 +240,7 @@ router.post('/ideas', (req, res) => {
     getDb().run(`
       INSERT INTO ideas (id, title, source_type, source_url, author, raw_notes, content_pillar, status)
       VALUES (?, ?, ?, ?, ?, ?, ?, 'INBOX')
-    `, [id, title.trim(), source_type || 'Observation', (source_url || '').trim(), author || '', raw_notes || '', content_pillar || 'clarity']);
+    `, [id, title.trim(), source_type || 'Observation', (source_url || '').trim(), author || '', raw_notes || '', content_pillar || '']);
     saveDb();
     res.json({ success: true, data: { id, title } });
   } catch (error) {
@@ -357,14 +357,15 @@ router.post('/master/:id', async (req, res) => {
     // Allow generating master article directly even if step 1 (research_pack) was skipped!
     const researchPack = idea.research_pack || {
       central_insight: idea.title,
-      source_summary: idea.raw_notes || '由 Betty 親自提供的架構與筆記',
+      source_summary: idea.raw_notes || '由作者親自提供的筆記與架構',
       source_says: [],
-      research_suggests: ['依據教練對話核心與心理學認知重構架構'],
-      interpretation_space: ['尊重 Betty 的個人洞見與同行體驗'],
+      research_suggests: [],
+      interpretation_space: ['以作者的個人想法與經驗為主'],
       psychology_grounding: {
-        primary_framework: '正向心理學與認知重構 (Cognitive Reframing)',
-        theorists: ['Carl Rogers', 'Aaron Beck'],
-        theoretical_explanation: '從自我覺察、認知邊界與溫和重構出發，協助看見行為背後的正向意圖與保護機制。',
+        fields: [],
+        primary_framework: '依作者筆記而定',
+        theorists: [],
+        theoretical_explanation: '',
         citations: []
       },
       key_concepts: [],
@@ -525,7 +526,7 @@ router.post('/podcast/:id', async (req, res) => {
       JSON.stringify(pkg.talking_points || []),
       pkg.full_script || '',
       JSON.stringify(pkg.show_notes || {}),
-      JSON.stringify(pkg.show_notes?.psychology_references || []),
+      JSON.stringify(pkg.show_notes?.references || pkg.show_notes?.psychology_references || []),
       pkg.notebooklm_export || ''
     ]);
     saveDb();

@@ -1,11 +1,11 @@
 import { esc, renderMarkdown } from '../utils.js';
 
 const HINTS = [
-  { icon: '🌱', title: '為什麼這對你重要？', desc: '觸動你探索這個主題的核心起心動念或真實痛點。' },
-  { icon: '☕', title: '親身經歷或微觀察', desc: '真實生活片刻、個案同行觀察、或是曾讓你胃一緊的瞬間。' },
-  { icon: '💡', title: '想打破的簡化迷思', desc: '不想流於陳腔濫調（例如：只叫人「勇敢說不」，背後卻忽略被討厭的恐懼）。' },
-  { icon: '🔍', title: '對話中最先看見什麼？', desc: '陪對方先留意的身體訊號、情緒界線或隱微保護機制。' },
-  { icon: '✨', title: '今日可試的小實驗', desc: '微小、無痛、受眾今天就能試做的一個行為小步驟。' }
+  { icon: '🌱', title: '為什麼我想聊這件事？', desc: '觸動你注意這個主題的原因，或最近卡在你心裡的一個問題。' },
+  { icon: '☕', title: '我的經驗或觀察', desc: '真實的生活片刻、工作場景、或某個讓你有感的瞬間。' },
+  { icon: '💡', title: '想補充的不同角度', desc: '常見說法忽略了什麼？有沒有更貼近真實處境的看法？' },
+  { icon: '🔍', title: '我是怎麼發現的？', desc: '讀到的書、看到的研究、或自己踩過坑之後整理出的線索。' },
+  { icon: '✨', title: '一個我自己試過（或想試）的小做法', desc: '具體、低門檻、可以分享給讀者一起試試看的小方法。' }
 ];
 
 export function renderInterviewMaster(container, state, app) {
@@ -45,9 +45,9 @@ export function renderInterviewMaster(container, state, app) {
       </div>
     `;
     container.querySelector('#btn-quick-new-idea')?.addEventListener('click', async () => {
-      const title = prompt('請輸入文章主題（例如：討好型人格的邊界重塑）：');
+      const title = prompt('請輸入文章主題（例如：為什麼開會越多決策越慢）：');
       if (title && title.trim()) {
-        await app.createIdea({ title: title.trim(), content_pillar: 'clarity', source_type: 'Observation' });
+        await app.createIdea({ title: title.trim(), source_type: 'Observation' });
       }
     });
     return;
@@ -78,17 +78,17 @@ export function renderInterviewMaster(container, state, app) {
           </div>
 
           <p class="section-desc" style="margin-bottom: 8px;">
-            隨性書寫、貼上 Gemini Notebook 架構，或上傳筆記與草圖。右側有教練思考提點，放手自由發揮。
+            隨性書寫、貼上 Gemini Notebook 架構，或上傳筆記與草圖。下方有寫作提點可參考，放手自由發揮。
           </p>
         </div>
 
         ${currentIdea?.research_pack ? `
           <div class="source-banner cite-ok" style="margin-bottom: 8px; font-size: 12px; padding: 6px 10px;">
-            📚 已融合第一步驟之心理學文獻研究包
+            📚 已結合第一步驟之跨領域研究包
           </div>
         ` : `
           <div class="source-banner" style="margin-bottom: 8px; font-size: 12px; padding: 6px 10px; background: #F3F4F6; color: #4B5563; border-color: #E5E7EB;">
-            💡 已獨立模式：可直接依據你的筆記架構生成母文，AI 會自動對齊正向心理學認知重構架構
+            💡 獨立模式：直接依你的筆記與架構生成分享文章，無需先跑研究步驟
           </div>
         `}
 
@@ -119,18 +119,18 @@ export function renderInterviewMaster(container, state, app) {
         <form id="interview-form">
           <div class="form-group" style="margin-bottom: 14px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-              <label class="form-label" style="margin-bottom: 0;">✍️ Betty 的個人洞見、架構或筆記全文</label>
+              <label class="form-label" style="margin-bottom: 0;">✍️ 我的想法、架構或筆記</label>
               <button type="button" id="btn-toggle-hints" class="btn-text-link" style="font-size: 12px; color: var(--primary);">
-                💡 思考提點 (${HINTS.length})
+                💡 寫作提點 (${HINTS.length})
               </button>
             </div>
-            <textarea id="free-notes-editor" class="form-textarea notes-workspace" placeholder="在這裡自由書寫你的感受、生活片段、對話心得，或直接貼上 Gemini Notebook / NotebookLM 整理好的架構與大綱...&#10;&#10;不必拘泥固定題目格式，AI 會尊重你的語氣與思維，自動與心理學研究包融合為 12 步溫暖母文章。">${esc(initialNotes)}</textarea>
+            <textarea id="free-notes-editor" class="form-textarea notes-workspace" placeholder="在這裡自由書寫你的觀察、生活片段、讀書心得，或直接貼上 Gemini Notebook / NotebookLM 整理好的架構與大綱...&#10;&#10;不必拘泥固定格式，AI 會以第一人稱「我」的分享口吻（不說教、不自稱教練），依內容自然組織成一篇好讀的文章。">${esc(initialNotes)}</textarea>
           </div>
 
-          <!-- Collapsible / Floating Coaching Prompts -->
+          <!-- Collapsible / Floating Writing Prompts -->
           <div id="coaching-hints-card" class="coaching-hints-card">
             <div class="hints-card-header">
-              <span>💡 教練思考提點（寫作時可參考的靈感角度）</span>
+              <span>💡 寫作提點（寫作時可參考的角度，不需逐題填寫）</span>
             </div>
             <div class="hints-grid">
               ${HINTS.map(h => `
@@ -229,11 +229,10 @@ export function renderInterviewMaster(container, state, app) {
 
   // Create New Topic directly in Interview tab
   container.querySelector('#btn-interview-new-topic')?.addEventListener('click', async () => {
-    const title = prompt('請輸入新主題標題（例如：高敏感者的情緒邊界練習）：');
+    const title = prompt('請輸入新主題標題（例如：為什麼開會越多決策越慢）：');
     if (title && title.trim()) {
       await app.createIdea({
         title: title.trim(),
-        content_pillar: 'clarity',
         source_type: 'Observation',
         raw_notes: '直接在洞見母文建立的主題'
       });
@@ -424,6 +423,7 @@ function renderReview(review) {
         }).join('')}
       </div>
       ${review.safety_check?.has_diagnostic_language ? '<div class="source-banner cite-bad" style="margin-bottom: 8px;">⚠️ 偵測到可能的診斷性語言</div>' : ''}
+      ${review.safety_check?.mentions_coaching_service ? `<div class="source-banner cite-bad" style="margin-bottom: 8px;">⚠️ 偵測到教練/諮詢服務相關字眼（${esc((review.safety_check.coaching_mentions_found || []).join('、') || '請移除服務邀約或教練自稱')}）</div>` : ''}
       ${review.safety_check?.unsupported_claims_flagged?.filter(Boolean).length ? `
         <div style="font-size: 12.5px; color: #92400E;"><strong>過度絕對的說法：</strong>
           <ul style="padding-left: 18px;">${review.safety_check.unsupported_claims_flagged.filter(Boolean).map(s => `<li>${esc(s)}</li>`).join('')}</ul>

@@ -40,8 +40,9 @@ function buildExportMarkdown({ idea, master, podcast, outputs }) {
     if (podcast.hook) out.push(`**開場 Hook：**${podcast.hook}`, '');
     if (podcast.full_script) out.push('### 逐字講稿', '', podcast.full_script, '');
     out.push('### Show Notes', '', sn.summary || '', '', list(sn.timestamps), '');
-    if ((sn.psychology_references || []).length) out.push('**參考資料：**', list(sn.psychology_references), '');
-    if (sn.reflection_question_for_listener) out.push(`**課後練習：**${sn.reflection_question_for_listener}`, '');
+    const refs = sn.references || sn.psychology_references || [];
+    if (refs.length) out.push('**參考資料：**', list(refs), '');
+    if (sn.reflection_question_for_listener) out.push(`**延伸思考：**${sn.reflection_question_for_listener}`, '');
     if (podcast.notebooklm_markdown) out.push('### NotebookLM 筆記', '', podcast.notebooklm_markdown, '');
   }
 

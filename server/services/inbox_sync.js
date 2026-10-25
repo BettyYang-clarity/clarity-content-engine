@@ -6,8 +6,6 @@
  * write endpoint has to be exposed to the internet.
  */
 
-const PILLAR_KEYS = ['clarity', 'confidence', 'hsp', 'boundaries', 'growth'];
-
 /** RFC 4180-ish CSV parser (quoted fields, escaped quotes, newlines in fields). */
 function parseCsv(text) {
   const rows = [];
@@ -48,15 +46,6 @@ function findColumn(headers, keywords) {
   return lower.findIndex(h => keywords.some(k => h.includes(k)));
 }
 
-function toPillar(value) {
-  const v = (value || '').toLowerCase();
-  if (v.includes('高敏') || v.includes('hsp')) return 'hsp';
-  if (v.includes('自信') || v.includes('confidence')) return 'confidence';
-  if (v.includes('邊界') || v.includes('boundar')) return 'boundaries';
-  if (v.includes('正向') || v.includes('growth') || v.includes('positive')) return 'growth';
-  return PILLAR_KEYS.find(k => v.includes(k)) || 'clarity';
-}
-
 function isPublishedCsvUrl(url) {
   return /^https:\/\/docs\.google\.com\/spreadsheets\/.+(output=csv|format=csv)/i.test(url || '');
 }
@@ -75,8 +64,7 @@ async function fetchFormRows(csvUrl) {
     timestamp: findColumn(headers, ['時間戳記', 'timestamp', '時間']),
     title: findColumn(headers, ['標題', '主題', 'title']),
     url: findColumn(headers, ['網址', '連結', 'url', 'link']),
-    notes: findColumn(headers, ['筆記', '想法', 'notes']),
-    pillar: findColumn(headers, ['支柱', 'pillar'])
+    notes: findColumn(headers, ['筆記', '想法', 'notes'])
   };
   if (col.title < 0) throw new Error('試算表找不到「標題」欄位，請確認表單題目名稱包含「標題」');
 
@@ -89,7 +77,7 @@ async function fetchFormRows(csvUrl) {
       source_url: url,
       source_type: /youtu\.?be/i.test(url) ? 'YouTube' : (url ? 'Article' : 'Observation'),
       raw_notes: get(col.notes),
-      content_pillar: toPillar(get(col.pillar))
+      content_pillar: '' // categories removed — ideas are captured without a pillar
     };
   }).filter(r => r.title);
 }

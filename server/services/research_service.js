@@ -32,7 +32,7 @@ function matchTrusted(citation, trustedSources) {
 async function buildResearchPack(idea, trustedSources, onProgress = () => {}) {
   onProgress(1, 3, idea.source_url ? '讀取來源內容' : '整理筆記');
   const source = await prepareSource(idea);
-  onProgress(2, 3, '對齊心理學理論、整理研究包');
+  onProgress(2, 3, '尋找跨領域佐證、整理研究包');
 
   const frameworksSummary = frameworksData.frameworks.map(f =>
     `- 【${f.name}】代表學者: ${f.theorists.join(', ')}。核心概念: ${f.core_concepts.join('、')}`
@@ -43,7 +43,8 @@ async function buildResearchPack(idea, trustedSources, onProgress = () => {}) {
     : '（目前沒有）';
 
   const prompt = `
-你現在要為 Betty 的個人品牌進行深度學理研究與內容解構。
+你現在要協助作者為一篇個人分享文章做「佐證研究」與內容解構。
+作者的思考偏向心理與自我覺察，但主題不限領域；你的任務是找到「真正能說明這個想法」的可信佐證，而不是把主題硬套進某個心理學理論。
 
 【靈感資訊】
 - 標題/主題：${idea.title}
@@ -51,35 +52,41 @@ async function buildResearchPack(idea, trustedSources, onProgress = () => {}) {
 - 來源作者/出處：${idea.author || '未註明'}
 - 來源連結：${idea.source_url || '無'}
 - 來源讀取狀態：${source.meta.message}
-- Betty 的原始筆記：
+- 作者的原始筆記：
 ${idea.raw_notes || '（無額外筆記）'}
 
-【可參考的心理學理論架構】
+【研究方法】
+1. 先判斷哪些領域最能解釋這個主題：心理學、行為經濟學、神經科學、管理學、哲學、教育、社會學、知名書籍或可信的報導等皆可，可同時跨多個領域。
+2. 從那些領域找出可信的研究、理論、書籍或資料來支持（或挑戰）這個想法。
+3. 不要為了「看起來學術」而硬套理論；若沒有合適的理論，primary_framework 寫「個人觀察，無特定理論」即可。
+
+【心理學參考架構（僅供參考，不需套用；主題不適合時請完全忽略）】
 ${frameworksSummary}
 
-【Betty 的信任文獻清單（優先引用）】
+【作者的信任文獻清單（若相關則優先引用）】
 ${trustedList}
 
 【引用規則（非常重要）】
-1. 優先從「信任文獻清單」中選擇引用，並將 from_trusted_list 設為 true。
-2. 只有在你非常確定該文獻真實存在時，才可列出清單以外的文獻；不確定就不要列。
+1. 若信任文獻清單中有相關文獻，優先引用並將 from_trusted_list 設為 true；不相關就不要硬引。
+2. 只有在你非常確定該文獻或資料真實存在時，才可列出清單以外的來源；不確定就不要列。
 3. 絕不可編造作者、年份、期刊、卷期或頁碼。寧可少列，不可錯列。
 4. 若有附上來源內容，「source_says」必須只根據該內容，不可補充來源沒說的事。
 
-請只回傳 JSON，結構如下：
+請只回傳 JSON，結構如下（psychology_grounding 為歷史欄位名稱，內容可來自任何領域）：
 {
   "source_summary": "來源客觀事實摘要（200字內，避免照抄原文）",
   "central_insight": "核心洞見（一句話）",
   "source_says": ["來源實際提出的重點（若無來源內容則為空陣列）"],
-  "research_suggests": ["心理學研究或理論對此的觀點（標明是哪個理論）"],
-  "interpretation_space": ["留給 Betty 個人詮釋的空間或可能角度"],
+  "research_suggests": ["研究、理論或資料對此的觀點（標明來自哪個領域/理論）"],
+  "interpretation_space": ["留給作者個人詮釋的空間或可能角度"],
   "key_concepts": [{"term": "名詞", "definition": "白話且精確的定義"}],
   "psychology_grounding": {
-    "primary_framework": "最相符的理論名稱",
-    "theorists": ["學者姓名"],
-    "citations": [{"citation": "APA 格式引用", "from_trusted_list": true, "relevance": "此文獻支持哪個論點"}],
-    "theoretical_explanation": "此主題在心理學理論中如何被解釋",
-    "recommended_reading": ["延伸閱讀書目或權威資源"]
+    "fields": ["相關領域，例如：行為經濟學、管理學"],
+    "primary_framework": "最主要的視角或概念名稱（任何領域；無則寫「個人觀察，無特定理論」）",
+    "theorists": ["相關作者或研究者"],
+    "citations": [{"citation": "APA 格式引用", "from_trusted_list": true, "relevance": "此來源支持哪個論點"}],
+    "theoretical_explanation": "用白話說明：為什麼這個想法說得通（或有哪些限制）",
+    "recommended_reading": ["延伸閱讀書目或可信資源"]
   },
   "claims_to_verify": ["需要查證或容易被過度簡化的說法"],
   "alternative_interpretations": ["避免單一歸因的其他可能解釋"],
@@ -89,7 +96,7 @@ ${trustedList}
 `;
 
   const parts = [...source.parts, { text: prompt }];
-  const systemInstruction = '你是一位兼具實證心理學深度與教練敏銳度的學術研究助理。只輸出合法 JSON。';
+  const systemInstruction = '你是一位跨領域、重視證據的研究助理，擅長找出能說明一個想法的可信來源，並用白話解釋。只輸出合法 JSON。';
 
   let result;
   try {
@@ -138,7 +145,7 @@ async function verifyCitations(citations, trustedSources) {
 
   if (pending.length) {
     const prompt = `
-請使用 Google 搜尋，逐條查證以下心理學文獻引用是否真實存在，並確認作者、年份、標題、出處是否正確。
+請使用 Google 搜尋，逐條查證以下文獻或資料來源是否真實存在，並確認作者、年份、標題、出處是否正確。
 
 ${pending.map(p => `[${p.index}] ${p.citation}`).join('\n')}
 

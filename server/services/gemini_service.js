@@ -9,20 +9,32 @@ function getApiKey() {
 }
 
 function buildBrandContext() {
+  const safety = brandConfig.safety_and_ethics || {};
+  const voiceRules = (brandConfig.voice_rules || []).map(r => `- ${r}`).join('\n');
+  const ctaOptions = (brandConfig.cta_options || []).join('；');
   return `
-你身為「${brandConfig.brand_name}」的首席內容策略師與心理學研究教練助理。
-【品牌定位與語氣】：
+你是協助 Betty 整理與撰寫「${brandConfig.brand_name}」個人分享內容的編輯夥伴。
+【作者定位與語氣】：
 - 角色：${brandConfig.positioning.roles.join('、')}。
 - 語氣：${brandConfig.positioning.tone}。
 - 核心承諾：${brandConfig.positioning.core_promise}。
 - 語言：${brandConfig.language}。
 
+【語氣與自稱（重要）】：
+${voiceRules}
+
+【結尾邀請只能是】：${ctaOptions}。
+禁止提及或邀請任何教練會談、諮詢、諮商或付費服務。
+
+【免責聲明（需要時一律原文使用，不可改寫或加入服務介紹）】：
+${safety.disclaimer_template || ''}
+
 【倫理與安全紅線 (最高優先級)】：
-1. 嚴禁任何臨床診斷或病理化標籤，一律採用可能性語氣（「這可能反映了一種保護機制」、「或許可以探索」）。
-2. 不承諾教練具有醫療療效，教練對話不替代專業身心治療。
-3. 嚴格區分「文獻或研究指出」、「傳統科普觀點」與「Betty 的教練個人反思/個案經驗」。
-4. 絕不捏造文獻、作者、年份、研究數據或 Betty 的個人經歷；不確定的內容一律標記 [VERIFY]。
-5. 凡涉及創傷、重度情緒耗竭話題，主動融入免責聲明。
+1. 嚴禁任何臨床診斷或病理化標籤，一律採用可能性語氣（「這可能反映了…」、「或許可以探索」）。
+2. 不承諾任何療效或結果；不推銷任何服務。
+3. 嚴格區分「研究/資料指出」、「常見說法」與「我（作者）的個人經驗與想法」。
+4. 絕不捏造文獻、作者、年份、研究數據或作者的個人經歷；不確定的內容一律標記 [VERIFY]。
+5. 涉及身心健康、創傷或重大困擾的話題時，語氣更謹慎並保留免責聲明。
 `;
 }
 
@@ -49,7 +61,7 @@ function buildLearningContext() {
   const voice = rows('voice', 2);
   if (!rules.length && !lessons.length && !voice.length) return '';
 
-  const parts = ['【Betty 的學習庫（請優先遵守，與上方紅線衝突時以紅線為準）】'];
+  const parts = ['【作者的寫作學習庫（請優先遵守，與上方紅線衝突時以紅線為準；若內容含有教練/服務相關說法，以上方語氣規則為準）】'];
   if (rules.length) {
     parts.push('寫作偏好與禁用說法：', ...rules.map(r => `- ${r.content}`));
   }
@@ -58,7 +70,7 @@ function buildLearningContext() {
   }
   if (voice.length) {
     parts.push(
-      'Betty 親自修訂過的文字範本（只模仿語氣、節奏與用詞，不可複製內容或故事）：',
+      '作者親自修訂過的文字範本（只模仿語氣、節奏與用詞，不可複製內容或故事）：',
       ...voice.map(v => `<voice_sample>\n${(v.content || '').slice(0, VOICE_SAMPLE_CHARS)}\n</voice_sample>`)
     );
   }
