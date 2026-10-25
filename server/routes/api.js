@@ -203,6 +203,18 @@ router.post('/trusted-sources', (req, res) => {
   }
 });
 
+router.put('/trusted-sources/:id', (req, res) => {
+  try {
+    const { citation, note } = req.body;
+    if (!citation || !citation.trim()) throw new HttpError(400, '請輸入文獻引用');
+    getDb().run('UPDATE trusted_sources SET citation = ?, note = ? WHERE id = ?', [citation.trim(), (note || '').trim(), Number(req.params.id)]);
+    saveDb();
+    res.json({ success: true });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
 router.delete('/trusted-sources/:id', (req, res) => {
   try {
     getDb().run('DELETE FROM trusted_sources WHERE id = ?', [Number(req.params.id)]);
@@ -219,7 +231,7 @@ router.get('/ideas', (req, res) => {
   try {
     // Subqueries instead of JOINs so each idea appears exactly once
     const list = getAll(`
-      SELECT i.id, i.title, i.source_type, i.source_url, i.content_pillar, i.status, i.created_at, i.updated_at,
+      SELECT i.id, i.title, i.source_type, i.source_url, i.author, i.raw_notes, i.content_pillar, i.status, i.created_at, i.updated_at,
              (SELECT is_approved FROM content_masters WHERE idea_id = i.id LIMIT 1) AS is_approved,
              (SELECT id FROM content_masters WHERE idea_id = i.id LIMIT 1) AS master_id
       FROM ideas i
@@ -243,6 +255,53 @@ router.post('/ideas', (req, res) => {
     `, [id, title.trim(), source_type || 'Observation', (source_url || '').trim(), author || '', raw_notes || '', content_pillar || '']);
     saveDb();
     res.json({ success: true, data: { id, title } });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+router.put('/ideas/:id', (req, res) => {
+  try {
+    const idea = getIdeaOr404(req.params.id);
+    const { title, source_type, source_url, author, raw_notes } = req.body;
+    const newTitle = title !== undefined ? title.trim() : idea.title;
+    if (!newTitle) throw new HttpError(400, '主題標題不可為空');
+
+    getDb().run(`
+      UPDATE ideas
+      SET title = ?, source_type = ?, source_url = ?, author = ?, raw_notes = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `, [
+      newTitle,
+      source_type !== undefined ? source_type : idea.source_type,
+      source_url !== undefined ? source_url.trim() : idea.source_url,
+      author !== undefined ? author.trim() : idea.author,
+      raw_notes !== undefined ? raw_notes : idea.raw_notes,
+      idea.id
+    ]);
+    saveDb();
+    res.json({ success: true });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+router.delete('/ideas/:id', (req, res) => {
+  try {
+    const idea = getIdeaOr404(req.params.id);
+    const db = getDb();
+    const master = getMaster(idea.id);
+    if (master) {
+      db.run('DELETE FROM podcasts WHERE master_id = ?', [master.id]);
+      db.run('DELETE FROM platform_outputs WHERE master_id = ?', [master.id]);
+      db.run('DELETE FROM master_versions WHERE master_id = ?', [master.id]);
+      db.run('DELETE FROM content_masters WHERE id = ?', [master.id]);
+    }
+    db.run('DELETE FROM performance_logs WHERE idea_id = ?', [idea.id]);
+    db.run('DELETE FROM export_archives WHERE idea_id = ?', [idea.id]);
+    db.run('DELETE FROM ideas WHERE id = ?', [idea.id]);
+    saveDb();
+    res.json({ success: true });
   } catch (error) {
     sendError(res, error);
   }
@@ -276,7 +335,8 @@ function loadIdeaBundle(id) {
   }
 
   const performance = getAll('SELECT * FROM performance_logs WHERE idea_id = ? ORDER BY created_at DESC', [idea.id]);
-  return { idea, master, podcast, outputs, performance, job: getJob(idea.id) };
+  const exports = getAll('SELECT * FROM export_archives WHERE idea_id = ? ORDER BY created_at DESC', [idea.id]);
+  return { idea, master, podcast, outputs, performance, exports, job: getJob(idea.id) };
 }
 
 router.get('/ideas/:id', (req, res) => {
@@ -308,6 +368,33 @@ router.post('/research/:id', async (req, res) => {
     `, [JSON.stringify(researchPack), idea.id]);
     saveDb();
     res.json({ success: true, data: researchPack });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+router.put('/research/:id', (req, res) => {
+  try {
+    const idea = getIdeaOr404(req.params.id);
+    const { research_pack } = req.body;
+    if (!research_pack || typeof research_pack !== 'object') throw new HttpError(400, '研究包格式不正確');
+    const merged = { ...(idea.research_pack || {}), ...research_pack };
+    getDb().run(`
+      UPDATE ideas SET research_pack = ?, status = CASE WHEN status = 'INBOX' THEN 'RESEARCHED' ELSE status END, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+    `, [JSON.stringify(merged), idea.id]);
+    saveDb();
+    res.json({ success: true, data: merged });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+router.delete('/research/:id', (req, res) => {
+  try {
+    const idea = getIdeaOr404(req.params.id);
+    getDb().run("UPDATE ideas SET research_pack = NULL, status = 'INBOX', updated_at = CURRENT_TIMESTAMP WHERE id = ?", [idea.id]);
+    saveDb();
+    res.json({ success: true });
   } catch (error) {
     sendError(res, error);
   }
@@ -373,7 +460,7 @@ router.post('/master/:id', async (req, res) => {
     };
 
     const { masterArticle, clearReview } = await runJob(idea.id, '撰寫母文章', async onProgress => {
-      onProgress(1, 2, '撰寫母文章（12 步架構）');
+      onProgress(1, 2, '撰寫母文章');
       const article = await generateMasterArticle(idea, researchPack, interviewAnswers);
       onProgress(2, 2, 'CLEAR 品質與倫理審查');
       const review = await runClearReview(article);
@@ -404,31 +491,55 @@ router.post('/master/:id', async (req, res) => {
   }
 });
 
-// Betty edits the master article — the edited text becomes the source of truth
+// Betty creates or edits the master article — the edited text becomes the source of truth
 router.put('/master/:id', (req, res) => {
   try {
     const idea = getIdeaOr404(req.params.id);
-    const master = getMaster(idea.id);
-    if (!master) throw new HttpError(404, '母文章不存在');
+    let master = getMaster(idea.id);
 
     const { master_article } = req.body;
     if (!master_article || !master_article.trim()) throw new HttpError(400, '母文章內容不可為空');
-    if (master_article === master.master_article) {
+    if (master && master_article === master.master_article) {
       return res.json({ success: true, data: { unchanged: true } });
     }
 
-    const review = master.clear_review ? { ...master.clear_review, stale: true } : null;
     const db = getDb();
-    db.run(`
-      UPDATE content_masters
-      SET master_article = ?, clear_review = ?, is_approved = 0, approved_at = NULL, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `, [master_article, review ? JSON.stringify(review) : null, master.id]);
-    saveVersion(master.id, master_article, 'edit');
+    let masterId = master?.id;
+    if (masterId) {
+      const review = master.clear_review ? { ...master.clear_review, stale: true } : null;
+      db.run(`
+        UPDATE content_masters
+        SET master_article = ?, clear_review = ?, is_approved = 0, approved_at = NULL, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `, [master_article, review ? JSON.stringify(review) : null, masterId]);
+    } else {
+      masterId = generateId('CM');
+      db.run(`
+        INSERT INTO content_masters (id, idea_id, interview_answers, master_article, clear_review, is_approved)
+        VALUES (?, ?, '{}', ?, NULL, 0)
+      `, [masterId, idea.id, master_article]);
+    }
+    saveVersion(masterId, master_article, 'edit');
     db.run("UPDATE ideas SET status = 'MASTER_DRAFTED' WHERE id = ?", [idea.id]);
     saveDb();
 
     res.json({ success: true, data: { verify_markers: countVerifyMarkers(master_article) } });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+router.delete('/master/:id', (req, res) => {
+  try {
+    const idea = getIdeaOr404(req.params.id);
+    const master = getMaster(idea.id);
+    if (master) {
+      const db = getDb();
+      db.run('UPDATE content_masters SET master_article = NULL, clear_review = NULL, is_approved = 0, approved_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [master.id]);
+      db.run("UPDATE ideas SET status = CASE WHEN research_pack IS NOT NULL THEN 'RESEARCHED' ELSE 'INBOX' END WHERE id = ?", [idea.id]);
+      saveDb();
+    }
+    res.json({ success: true });
   } catch (error) {
     sendError(res, error);
   }
@@ -459,6 +570,16 @@ router.get('/master/:id/versions', (req, res) => {
       [master.id]
     );
     res.json({ success: true, data: versions });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+router.delete('/master/:id/versions/:versionId', (req, res) => {
+  try {
+    getDb().run('DELETE FROM master_versions WHERE id = ?', [Number(req.params.versionId)]);
+    saveDb();
+    res.json({ success: true });
   } catch (error) {
     sendError(res, error);
   }
@@ -536,6 +657,65 @@ router.post('/podcast/:id', async (req, res) => {
   }
 });
 
+router.put('/podcast/:id', (req, res) => {
+  try {
+    const idea = getIdeaOr404(req.params.id);
+    const master = getMaster(idea.id);
+    if (!master) throw new HttpError(404, '母文章不存在');
+    const existing = getOne('SELECT * FROM podcasts WHERE master_id = ? ORDER BY created_at DESC LIMIT 1', [master.id]);
+    const { titles, hook, talking_points, full_script, show_notes, notebooklm_markdown } = req.body;
+    const db = getDb();
+
+    if (existing) {
+      db.run(`
+        UPDATE podcasts
+        SET titles = ?, hook = ?, talking_points = ?, full_script = ?, show_notes = ?, notebooklm_markdown = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `, [
+        titles !== undefined ? JSON.stringify(titles) : existing.titles,
+        hook !== undefined ? hook : existing.hook,
+        talking_points !== undefined ? JSON.stringify(talking_points) : existing.talking_points,
+        full_script !== undefined ? full_script : existing.full_script,
+        show_notes !== undefined ? JSON.stringify(show_notes) : existing.show_notes,
+        notebooklm_markdown !== undefined ? notebooklm_markdown : existing.notebooklm_markdown,
+        existing.id
+      ]);
+    } else {
+      db.run(`
+        INSERT INTO podcasts (id, master_id, titles, hook, talking_points, full_script, show_notes, references_list, notebooklm_markdown, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, '[]', ?, 'READY')
+      `, [
+        generateId('POD'),
+        master.id,
+        JSON.stringify(titles || {}),
+        hook || '',
+        JSON.stringify(talking_points || []),
+        full_script || '',
+        JSON.stringify(show_notes || {}),
+        notebooklm_markdown || ''
+      ]);
+    }
+    saveDb();
+    res.json({ success: true });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+router.delete('/podcast/:id', (req, res) => {
+  try {
+    const idea = getIdeaOr404(req.params.id);
+    const master = getMaster(idea.id);
+    if (master) {
+      getDb().run('DELETE FROM podcasts WHERE master_id = ?', [master.id]);
+      saveDb();
+    }
+    res.json({ success: true });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
 // ---------- social multiplier ----------
 
 router.post('/multiplier/:id', async (req, res) => {
@@ -562,6 +742,61 @@ router.post('/multiplier/:id', async (req, res) => {
     db.run("UPDATE ideas SET status = 'MULTIPLIED' WHERE id = ?", [idea.id]);
     saveDb();
     res.json({ success: true, data: pkg });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+router.put('/multiplier/:id/:platform', (req, res) => {
+  try {
+    const idea = getIdeaOr404(req.params.id);
+    const master = getMaster(idea.id);
+    if (!master) throw new HttpError(404, '母文章不存在');
+    const platform = req.params.platform;
+    const { content_payload } = req.body;
+    if (!content_payload) throw new HttpError(400, '內容不可為空');
+
+    let copyText = '';
+    if (platform === 'instagram') copyText = content_payload.caption || '';
+    else if (platform === 'facebook') copyText = content_payload.post_text || '';
+    else if (platform === 'threads' && Array.isArray(content_payload)) copyText = content_payload.map(t => `${t.label}\n${t.text}`).join('\n\n---\n\n');
+    else if (platform === 'blog') copyText = content_payload.markdown_content || '';
+
+    const db = getDb();
+    const existing = getOne('SELECT id FROM platform_outputs WHERE master_id = ? AND platform = ?', [master.id, platform]);
+    if (existing) {
+      db.run('UPDATE platform_outputs SET content_payload = ?, copy_text = ?, created_at = CURRENT_TIMESTAMP WHERE id = ?', [
+        JSON.stringify(content_payload),
+        copyText,
+        existing.id
+      ]);
+    } else {
+      db.run(`
+        INSERT INTO platform_outputs (id, master_id, platform, variant_type, content_payload, copy_text)
+        VALUES (?, ?, ?, 'manual', ?, ?)
+      `, [generateId('OUT'), master.id, platform, JSON.stringify(content_payload), copyText]);
+    }
+    saveDb();
+    res.json({ success: true });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+router.delete('/multiplier/:id/:platform', (req, res) => {
+  try {
+    const idea = getIdeaOr404(req.params.id);
+    const master = getMaster(idea.id);
+    if (master) {
+      const p = req.params.platform;
+      if (p === 'all') {
+        getDb().run('DELETE FROM platform_outputs WHERE master_id = ?', [master.id]);
+      } else {
+        getDb().run('DELETE FROM platform_outputs WHERE master_id = ? AND platform = ?', [master.id, p]);
+      }
+      saveDb();
+    }
+    res.json({ success: true });
   } catch (error) {
     sendError(res, error);
   }
@@ -599,9 +834,10 @@ router.put('/library/:id', (req, res) => {
   try {
     const item = getOne('SELECT * FROM learning_library WHERE id = ?', [req.params.id]);
     if (!item) throw new HttpError(404, '找不到此項目');
-    const { title, content, is_active } = req.body;
+    const { category, title, content, is_active } = req.body;
     if (content !== undefined && !content.trim()) throw new HttpError(400, '內容不可為空');
-    getDb().run('UPDATE learning_library SET title = ?, content = ?, is_active = ? WHERE id = ?', [
+    getDb().run('UPDATE learning_library SET category = ?, title = ?, content = ?, is_active = ? WHERE id = ?', [
+      category && LIBRARY_CATEGORIES.includes(category) ? category : item.category,
       title !== undefined ? title.trim() : item.title,
       content !== undefined ? content.trim() : item.content,
       is_active !== undefined ? (is_active ? 1 : 0) : item.is_active,
@@ -660,6 +896,31 @@ router.post('/performance/:id', (req, res) => {
   }
 });
 
+router.put('/performance/log/:logId', (req, res) => {
+  try {
+    const existing = getOne('SELECT * FROM performance_logs WHERE id = ?', [Number(req.params.logId)]);
+    if (!existing) throw new HttpError(404, '找不到此筆成效紀錄');
+    const { platform, reach, saves, shares, comments, notes } = req.body;
+    getDb().run(`
+      UPDATE performance_logs
+      SET platform = ?, reach = ?, saves = ?, shares = ?, comments = ?, notes = ?
+      WHERE id = ?
+    `, [
+      platform && PLATFORMS.includes(platform) ? platform : existing.platform,
+      reach !== undefined ? toCount(reach) : existing.reach,
+      saves !== undefined ? toCount(saves) : existing.saves,
+      shares !== undefined ? toCount(shares) : existing.shares,
+      comments !== undefined ? toCount(comments) : existing.comments,
+      notes !== undefined ? notes.trim() : existing.notes,
+      existing.id
+    ]);
+    saveDb();
+    res.json({ success: true });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
 router.delete('/performance/log/:logId', (req, res) => {
   try {
     getDb().run('DELETE FROM performance_logs WHERE id = ?', [Number(req.params.logId)]);
@@ -703,17 +964,85 @@ router.post('/library/extract-lessons', async (req, res) => {
   }
 });
 
-// ---------- export ----------
+// ---------- export & .md archive space ----------
+
+router.get('/exports', (req, res) => {
+  try {
+    const { idea_id } = req.query;
+    const rows = idea_id
+      ? getAll('SELECT * FROM export_archives WHERE idea_id = ? ORDER BY created_at DESC', [idea_id])
+      : getAll('SELECT * FROM export_archives ORDER BY created_at DESC LIMIT 100');
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
 
 router.post('/export/:id', (req, res) => {
   try {
     const bundle = loadIdeaBundle(req.params.id);
-    if (!bundle.master?.master_article) throw new HttpError(409, '尚未生成母文章，沒有內容可匯出');
-    const markdown = buildExportMarkdown(bundle);
-    const fileName = exportFileName(bundle.idea);
+    const customMd = req.body?.markdown_content;
+    const note = (req.body?.note || '').trim();
+    const customTitle = (req.body?.title || '').trim();
+
+    const markdown = customMd && customMd.trim() ? customMd : buildExportMarkdown(bundle);
+    const fileName = exportFileName(bundle.idea, note || undefined);
     const dir = getSetting('export_dir');
-    const savedPath = dir ? writeExport(dir, fileName, markdown) : null;
-    res.json({ success: true, data: { file_name: fileName, saved_path: savedPath, markdown } });
+    const savedPath = writeExport(dir, fileName, markdown);
+
+    const exportId = generateId('EXP');
+    const archiveTitle = customTitle || `${bundle.idea.title}${note ? `（${note}）` : ''}`;
+    getDb().run(`
+      INSERT INTO export_archives (id, idea_id, title, file_name, saved_path, markdown_content, note)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `, [exportId, bundle.idea.id, archiveTitle, fileName, savedPath, markdown, note]);
+    saveDb();
+
+    res.json({
+      success: true,
+      data: {
+        id: exportId,
+        title: archiveTitle,
+        file_name: fileName,
+        saved_path: savedPath,
+        markdown,
+        note
+      }
+    });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+router.put('/exports/:exportId', (req, res) => {
+  try {
+    const existing = getOne('SELECT * FROM export_archives WHERE id = ?', [req.params.exportId]);
+    if (!existing) throw new HttpError(404, '找不到此份 MD 存檔紀錄');
+    const { title, note, markdown_content } = req.body;
+    const nextTitle = title !== undefined ? title.trim() : existing.title;
+    const nextNote = note !== undefined ? note.trim() : existing.note;
+    const nextMd = markdown_content !== undefined ? markdown_content : existing.markdown_content;
+
+    const dir = getSetting('export_dir');
+    const savedPath = writeExport(dir, existing.file_name, nextMd);
+
+    getDb().run(`
+      UPDATE export_archives
+      SET title = ?, note = ?, markdown_content = ?, saved_path = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `, [nextTitle, nextNote, nextMd, savedPath, existing.id]);
+    saveDb();
+    res.json({ success: true });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+router.delete('/exports/:exportId', (req, res) => {
+  try {
+    getDb().run('DELETE FROM export_archives WHERE id = ?', [req.params.exportId]);
+    saveDb();
+    res.json({ success: true });
   } catch (error) {
     sendError(res, error);
   }

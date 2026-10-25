@@ -1,6 +1,11 @@
 const fs = require('fs');
 const path = require('path');
 
+const DEFAULT_EXPORT_DIR = path.join(__dirname, '..', 'data', 'exports');
+if (!fs.existsSync(DEFAULT_EXPORT_DIR)) {
+  fs.mkdirSync(DEFAULT_EXPORT_DIR, { recursive: true });
+}
+
 /** Windows-safe file name. */
 function safeName(s) {
   return (s || 'untitled').replace(/[\\/:*?"<>|\r\n]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
@@ -13,20 +18,33 @@ function list(items) {
 /**
  * Build one Markdown document with everything produced for an idea.
  */
-function buildExportMarkdown({ idea, master, podcast, outputs }) {
+function buildExportMarkdown({ idea, master, podcast, outputs = [] }) {
   const out = [];
   const grounding = idea.research_pack?.psychology_grounding || {};
   const find = p => outputs.find(o => o.platform === p)?.content_payload;
 
   out.push(`# ${idea.title}`, '');
   out.push(`- 狀態：${idea.status}${master?.is_approved ? '（已核准）' : ''}`);
-  if (idea.source_url) out.push(`- 來源：${idea.source_url}`);
+  if (idea.source_type) out.push(`- 來源類型：${idea.source_type}`);
+  if (idea.source_url) out.push(`- 來源連結：${idea.source_url}`);
+  if (idea.author) out.push(`- 作者/來源：${idea.author}`);
   out.push(`- 匯出時間：${new Date().toLocaleString('zh-TW')}`, '');
 
+  if (idea.raw_notes) {
+    out.push('## 原始靈感筆記', '', idea.raw_notes, '');
+  }
+
   if (idea.research_pack) {
-    out.push('## 研究摘要', '', `**核心洞見：**${idea.research_pack.central_insight || ''}`, '');
+    out.push('---', '', '## 研究摘要', '', `**核心洞見：**${idea.research_pack.central_insight || ''}`, '');
+    if (idea.research_pack.source_summary) {
+      out.push(`**來源摘要：**${idea.research_pack.source_summary}`, '');
+    }
     const cites = (grounding.citations || []).map(c => `${c.citation}（${c.status}）`);
     if (cites.length) out.push('**文獻：**', list(cites), '');
+  }
+
+  if (master?.interview_answers?.free_notes) {
+    out.push('---', '', '## 洞見草稿與個人筆記', '', master.interview_answers.free_notes, '');
   }
 
   if (master?.master_article) {
@@ -53,7 +71,7 @@ function buildExportMarkdown({ idea, master, podcast, outputs }) {
   if (ig || fb || threads || blog) out.push('---', '', '## 社群內容', '');
   if (ig) {
     out.push('### Instagram 輪播', '');
-    (ig.slides || []).forEach(s => out.push(`**P${s.slide_num}｜${s.title}**  `, `${s.subtitle || ''}  `, `_視覺：${s.visual_prompt || ''}_`, ''));
+    (ig.slides || []).forEach(s => out.push(`**P${s.slide_num}｜${s.title}**  `, `${s.subtitle || ''}  `, ''));
     out.push('**Caption：**', '', ig.caption || '', '');
   }
   if (fb) out.push('### Facebook', '', fb.post_text || '', '');
@@ -66,8 +84,9 @@ function buildExportMarkdown({ idea, master, podcast, outputs }) {
   return out.join('\n');
 }
 
-function exportFileName(idea) {
-  return `${new Date().toISOString().slice(0, 10)}_${safeName(idea.title)}.md`;
+function exportFileName(idea, suffix = '') {
+  const sfx = suffix ? `_${safeName(suffix)}` : '';
+  return `${new Date().toISOString().slice(0, 10)}_${safeName(idea.title)}${sfx}.md`;
 }
 
 /** Validate an export folder; returns normalised absolute path. */
@@ -82,9 +101,16 @@ function validateExportDir(dir) {
 }
 
 function writeExport(dir, fileName, markdown) {
-  const target = path.join(validateExportDir(dir), fileName);
-  fs.writeFileSync(target, markdown, 'utf8');
-  return target;
+  // Always save to built-in exports archive folder
+  const defaultTarget = path.join(DEFAULT_EXPORT_DIR, fileName);
+  fs.writeFileSync(defaultTarget, markdown, 'utf8');
+
+  if (dir && dir.trim()) {
+    const customTarget = path.join(validateExportDir(dir), fileName);
+    fs.writeFileSync(customTarget, markdown, 'utf8');
+    return customTarget;
+  }
+  return defaultTarget;
 }
 
-module.exports = { buildExportMarkdown, exportFileName, validateExportDir, writeExport };
+module.exports = { buildExportMarkdown, exportFileName, validateExportDir, writeExport, DEFAULT_EXPORT_DIR };

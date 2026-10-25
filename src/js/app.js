@@ -18,9 +18,21 @@ class App {
       trustedSources: [],
       learningLibrary: [],
       performanceLogs: [],
+      allExports: [],
       isProcessing: false,
       activeProgress: null,
-      ui: { editingMaster: false, podcastMode: 'talking', socialTab: 'ig' }
+      ui: {
+        editingIdea: false,
+        editingResearch: false,
+        editingMaster: false,
+        editingPodcast: false,
+        editingSocial: false,
+        editingExportId: null,
+        addingCustomExport: false,
+        editingLibId: null,
+        podcastMode: 'talking',
+        socialTab: 'ig'
+      }
     };
 
     this._progressPoller = null;
@@ -101,14 +113,16 @@ class App {
 
   async loadLearningData() {
     try {
-      const [libRes, perfRes] = await Promise.all([
+      const [libRes, perfRes, expRes] = await Promise.all([
         api('/api/library').catch(() => ({ success: false })),
-        api('/api/performance').catch(() => ({ success: false }))
+        api('/api/performance').catch(() => ({ success: false })),
+        api('/api/exports').catch(() => ({ success: false }))
       ]);
       if (libRes.success) this.state.learningLibrary = libRes.data || [];
       if (perfRes.success) this.state.performanceLogs = perfRes.data || [];
+      if (expRes.success) this.state.allExports = expRes.data || [];
     } catch (e) {
-      console.warn('Failed to load learning/performance data:', e);
+      console.warn('Failed to load learning/performance/export data:', e);
     }
   }
 
@@ -145,7 +159,12 @@ class App {
   }
 
   async selectIdea(id) {
+    this.state.ui.editingIdea = false;
+    this.state.ui.editingResearch = false;
     this.state.ui.editingMaster = false;
+    this.state.ui.editingPodcast = false;
+    this.state.ui.editingSocial = false;
+    this.state.ui.interviewImages = null;
     await this.loadIdeaDetail(id);
   }
 
@@ -234,6 +253,7 @@ class App {
       const res = await api('/api/ideas', { method: 'POST', body: payload });
       if (res.success) {
         this.showToast('✓ 靈感建立成功！');
+        this.state.selectedIdeaId = res.data.id;
         await this.loadIdeas();
         await this.loadIdeaDetail(res.data.id);
         const form = document.getElementById('add-idea-form');
@@ -244,6 +264,35 @@ class App {
     } finally {
       this.state.isProcessing = false;
       this.render();
+    }
+  }
+
+  async updateIdea(id, payload) {
+    try {
+      const res = await api(`/api/ideas/${id}`, { method: 'PUT', body: payload });
+      if (res.success) {
+        this.state.ui.editingIdea = false;
+        this.showToast('✓ 已儲存靈感修改');
+        await this.loadIdeas();
+        await this.loadIdeaDetail(id);
+      }
+    } catch (err) {
+      this.showToast(`修改失敗: ${err.message}`);
+    }
+  }
+
+  async deleteIdea(id) {
+    try {
+      const res = await api(`/api/ideas/${id}`, { method: 'DELETE' });
+      if (res.success) {
+        this.showToast('🗑️ 已刪除此主題');
+        this.state.selectedIdeaId = null;
+        this.state.currentDetail = null;
+        await this.loadIdeas();
+        await this.loadLearningData();
+      }
+    } catch (err) {
+      this.showToast(`刪除失敗: ${err.message}`);
     }
   }
 
@@ -261,6 +310,47 @@ class App {
     } finally {
       this.stopProgressPolling();
       this.render();
+    }
+  }
+
+  async updateResearchPack(id, researchPack) {
+    try {
+      const res = await api(`/api/research/${id}`, { method: 'PUT', body: { research_pack: researchPack } });
+      if (res.success) {
+        this.state.ui.editingResearch = false;
+        this.showToast('✓ 已儲存研究重點');
+        await this.loadIdeaDetail(id);
+        await this.loadIdeas();
+      }
+    } catch (err) {
+      this.showToast(`儲存研究包失敗: ${err.message}`);
+    }
+  }
+
+  async deleteResearchPack(id) {
+    try {
+      const res = await api(`/api/research/${id}`, { method: 'DELETE' });
+      if (res.success) {
+        this.state.ui.editingResearch = false;
+        this.showToast('🗑️ 已清除研究包');
+        await this.loadIdeaDetail(id);
+        await this.loadIdeas();
+      }
+    } catch (err) {
+      this.showToast(`清除研究包失敗: ${err.message}`);
+    }
+  }
+
+  async saveInterviewOnly(id, answers) {
+    try {
+      const res = await api(`/api/interview/${id}`, { method: 'POST', body: { answers } });
+      if (res.success) {
+        this.showToast('✓ 筆記已儲存！');
+        await this.loadIdeaDetail(id);
+        await this.loadIdeas();
+      }
+    } catch (err) {
+      this.showToast(`儲存筆記失敗: ${err.message}`);
     }
   }
 
@@ -329,6 +419,32 @@ class App {
     }
   }
 
+  async deleteMasterArticle(id) {
+    try {
+      const res = await api(`/api/master/${id}`, { method: 'DELETE' });
+      if (res.success) {
+        this.state.ui.editingMaster = false;
+        this.showToast('🗑️ 已清除母文章');
+        await this.loadIdeaDetail(id);
+        await this.loadIdeas();
+      }
+    } catch (err) {
+      this.showToast(`刪除失敗: ${err.message}`);
+    }
+  }
+
+  async deleteMasterVersion(ideaId, versionId) {
+    try {
+      const res = await api(`/api/master/${ideaId}/versions/${versionId}`, { method: 'DELETE' });
+      if (res.success) {
+        this.showToast('🗑️ 已刪除此版本紀錄');
+        await this.loadIdeaDetail(ideaId);
+      }
+    } catch (err) {
+      this.showToast(`刪除版本失敗: ${err.message}`);
+    }
+  }
+
   async rerunClear(id) {
     try {
       this.startProgressPolling(id, 'CLEAR 門禁審查');
@@ -374,6 +490,23 @@ class App {
     }
   }
 
+  async updateTrustedSource(id, citation, note) {
+    try {
+      const res = await api(`/api/trusted-sources/${id}`, {
+        method: 'PUT',
+        body: { citation, note }
+      });
+      if (res.success) {
+        this.showToast('✓ 已更新信任文獻');
+        const trustedRes = await api('/api/trusted-sources');
+        if (trustedRes.success) this.state.trustedSources = trustedRes.data;
+        this.render();
+      }
+    } catch (err) {
+      this.showToast(`修改失敗: ${err.message}`);
+    }
+  }
+
   async deleteTrustedSource(id) {
     try {
       const res = await api(`/api/trusted-sources/${id}`, { method: 'DELETE' });
@@ -406,6 +539,32 @@ class App {
     }
   }
 
+  async savePodcastEdit(id, payload) {
+    try {
+      const res = await api(`/api/podcast/${id}`, { method: 'PUT', body: payload });
+      if (res.success) {
+        this.state.ui.editingPodcast = false;
+        this.showToast('✓ 已儲存播客修改');
+        await this.loadIdeaDetail(id);
+      }
+    } catch (err) {
+      this.showToast(`儲存播客失敗: ${err.message}`);
+    }
+  }
+
+  async deletePodcast(id) {
+    try {
+      const res = await api(`/api/podcast/${id}`, { method: 'DELETE' });
+      if (res.success) {
+        this.state.ui.editingPodcast = false;
+        this.showToast('🗑️ 已刪除播客內容');
+        await this.loadIdeaDetail(id);
+      }
+    } catch (err) {
+      this.showToast(`刪除播客失敗: ${err.message}`);
+    }
+  }
+
   async generateMultiplier(id) {
     try {
       this.startProgressPolling(id, 'Social Multiplier 社群調適');
@@ -420,6 +579,35 @@ class App {
     } finally {
       this.stopProgressPolling();
       this.render();
+    }
+  }
+
+  async saveSocialPlatform(id, platform, contentPayload, keepEditing = false) {
+    try {
+      const res = await api(`/api/multiplier/${id}/${platform}`, {
+        method: 'PUT',
+        body: { content_payload: contentPayload }
+      });
+      if (res.success) {
+        this.state.ui.editingSocial = keepEditing;
+        this.showToast('✓ 已儲存社群內容修改');
+        await this.loadIdeaDetail(id);
+      }
+    } catch (err) {
+      this.showToast(`儲存社群內容失敗: ${err.message}`);
+    }
+  }
+
+  async deleteSocialPlatform(id, platform) {
+    try {
+      const res = await api(`/api/multiplier/${id}/${platform}`, { method: 'DELETE' });
+      if (res.success) {
+        this.state.ui.editingSocial = false;
+        this.showToast('🗑️ 已刪除平台內容');
+        await this.loadIdeaDetail(id);
+      }
+    } catch (err) {
+      this.showToast(`刪除失敗: ${err.message}`);
     }
   }
 
@@ -447,11 +635,14 @@ class App {
     }
   }
 
-  // --- One-Click Export to Markdown & Google Drive ---
-  async exportIdeaPackage(id) {
+  // --- One-Click Export to Markdown & Archive Space ---
+  async exportIdeaPackage(id, options = {}) {
     try {
-      this.showToast('正在打包專案成果...');
-      const res = await api(`/api/export/${id}`, { method: 'POST' });
+      this.showToast('正在打包並建立 .md 存檔紀錄...');
+      const res = await api(`/api/export/${id}`, {
+        method: 'POST',
+        body: options
+      });
       if (res.success) {
         const { file_name, saved_path, markdown } = res.data;
 
@@ -466,14 +657,45 @@ class App {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
 
-        let msg = `✓ 已下載 ${file_name}`;
+        let msg = `✓ 已存檔並下載 ${file_name}`;
         if (saved_path) {
-          msg += `，並同步儲存至：${saved_path}`;
+          msg += `（已寫入：${saved_path}）`;
         }
         this.showToast(msg);
+        await this.loadIdeaDetail(id);
+        await this.loadLearningData();
       }
     } catch (err) {
       this.showToast(`匯出失敗: ${err.message}`);
+    }
+  }
+
+  async updateExportArchive(exportId, payload) {
+    try {
+      const res = await api(`/api/exports/${exportId}`, { method: 'PUT', body: payload });
+      if (res.success) {
+        this.state.ui.editingExportId = null;
+        this.showToast('✓ 已更新 .md 存檔紀錄');
+        if (this.state.selectedIdeaId) await this.loadIdeaDetail(this.state.selectedIdeaId);
+        await this.loadLearningData();
+        this.render();
+      }
+    } catch (err) {
+      this.showToast(`修改存檔失敗: ${err.message}`);
+    }
+  }
+
+  async deleteExportArchive(exportId) {
+    try {
+      const res = await api(`/api/exports/${exportId}`, { method: 'DELETE' });
+      if (res.success) {
+        this.showToast('🗑️ 已刪除此筆 .md 存檔紀錄');
+        if (this.state.selectedIdeaId) await this.loadIdeaDetail(this.state.selectedIdeaId);
+        await this.loadLearningData();
+        this.render();
+      }
+    } catch (err) {
+      this.showToast(`刪除存檔失敗: ${err.message}`);
     }
   }
 
@@ -491,6 +713,22 @@ class App {
       }
     } catch (err) {
       this.showToast(`新增失敗: ${err.message}`);
+    }
+  }
+
+  async updateLibraryItem(id, payload) {
+    try {
+      const res = await api(`/api/library/${id}`, {
+        method: 'PUT',
+        body: payload
+      });
+      if (res.success) {
+        this.showToast('✓ 已更新學習庫規則');
+        await this.loadLearningData();
+        this.render();
+      }
+    } catch (err) {
+      this.showToast(`更新失敗: ${err.message}`);
     }
   }
 
@@ -537,6 +775,37 @@ class App {
       }
     } catch (err) {
       this.showToast(`記錄失敗: ${err.message}`);
+    }
+  }
+
+  async updatePerformanceLog(logId, payload) {
+    try {
+      const res = await api(`/api/performance/log/${logId}`, {
+        method: 'PUT',
+        body: payload
+      });
+      if (res.success) {
+        this.showToast('✓ 已更新成效數據');
+        await this.loadLearningData();
+        if (this.state.selectedIdeaId) await this.loadIdeaDetail(this.state.selectedIdeaId);
+        this.render();
+      }
+    } catch (err) {
+      this.showToast(`修改失敗: ${err.message}`);
+    }
+  }
+
+  async deletePerformanceLog(logId) {
+    try {
+      const res = await api(`/api/performance/log/${logId}`, { method: 'DELETE' });
+      if (res.success) {
+        this.showToast('🗑️ 已刪除成效紀錄');
+        await this.loadLearningData();
+        if (this.state.selectedIdeaId) await this.loadIdeaDetail(this.state.selectedIdeaId);
+        this.render();
+      }
+    } catch (err) {
+      this.showToast(`刪除失敗: ${err.message}`);
     }
   }
 

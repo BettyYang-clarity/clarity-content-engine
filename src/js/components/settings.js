@@ -1,10 +1,12 @@
-import { esc } from '../utils.js';
+import { esc, renderMdArchiveSection, bindMdArchiveEvents } from '../utils.js';
 
 export function renderSettings(container, state, app) {
   const frameworks = state.frameworks || [];
   const trusted = state.trustedSources || [];
   const library = state.learningLibrary || [];
   const perfs = state.performanceLogs || [];
+  const allExports = state.allExports || [];
+  const editingLibId = state.ui?.editingLibId || null;
 
   container.innerHTML = `
     <div class="main-panel" style="max-width: 1000px; margin: 0 auto;">
@@ -73,25 +75,45 @@ export function renderSettings(container, state, app) {
         </div>
 
         <div class="learning-library-grid">
-          ${library.length ? library.map(item => `
+          ${library.length ? library.map(item => {
+            const isEd = editingLibId === item.id;
+            return `
             <div class="learning-card ${item.is_active ? '' : 'inactive'}">
               <div>
                 <div class="learning-card-header">
                   <span class="learning-badge ${esc(item.category)}">${esc(item.category.toUpperCase())}</span>
                   <strong style="font-size: 13px;">${esc(item.title || '無標題')}</strong>
                 </div>
-                <div style="font-size: 12.5px; color: #374151; margin-top: 6px; line-height: 1.5;">${esc(item.content)}</div>
+                ${isEd ? `
+                  <input type="text" class="form-input inp-edit-lib-title" data-id="${item.id}" value="${esc(item.title || '')}" style="margin-top: 6px; font-size: 12.5px;" placeholder="標題">
+                  <textarea class="form-textarea inp-edit-lib-content" data-id="${item.id}" style="margin-top: 6px; min-height: 70px; font-size: 12.5px;">${esc(item.content)}</textarea>
+                  <div style="display: flex; justify-content: flex-end; gap: 6px; margin-top: 6px;">
+                    <button class="btn btn-outline btn-sm btn-cancel-edit-lib" style="padding: 2px 8px; font-size: 11px;">取消</button>
+                    <button class="btn btn-primary btn-sm btn-save-edit-lib" data-id="${item.id}" style="padding: 2px 8px; font-size: 11px;">💾 確定儲存</button>
+                  </div>
+                ` : `
+                  <div style="font-size: 12.5px; color: #374151; margin-top: 6px; line-height: 1.5;">${esc(item.content)}</div>
+                `}
               </div>
               <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; border-top: 1px solid var(--border); padding-top: 6px;">
                 <label style="font-size: 12px; cursor: pointer; color: var(--text-muted);">
                   <input type="checkbox" class="chk-lib-active" data-id="${item.id}" ${item.is_active ? 'checked' : ''}>
                   ${item.is_active ? '啟用中' : '已停用'}
                 </label>
-                <button class="btn btn-outline btn-sm btn-del-lib" data-id="${item.id}" style="padding: 2px 6px; font-size: 11px;">刪除</button>
+                <div style="display: flex; gap: 4px;">
+                  <button class="btn btn-outline btn-sm btn-edit-lib" data-id="${item.id}" style="padding: 2px 6px; font-size: 11px;">✏️ 修改</button>
+                  <button class="btn btn-outline btn-sm btn-del-lib" data-id="${item.id}" style="padding: 2px 6px; font-size: 11px; color: #DC2626;">🗑️ 刪除</button>
+                </div>
               </div>
             </div>
-          `).join('') : '<p style="font-size: 12.5px; color: var(--text-muted);">目前尚無學習庫規則，可手動新增或點擊上方萃取法則。</p>'}
+          `;
+          }).join('') : '<p style="font-size: 12.5px; color: var(--text-muted);">目前尚無學習庫規則，可手動新增或點擊上方萃取法則。</p>'}
         </div>
+      </div>
+
+      <!-- Section 4.5: All MD Export Archives Space -->
+      <div style="margin-bottom: 24px;">
+        ${renderMdArchiveSection(allExports, state.currentDetail?.idea || null, state)}
       </div>
 
       <!-- Section 5: Performance Logs Input -->
@@ -117,7 +139,7 @@ export function renderSettings(container, state, app) {
           <input type="number" id="perf-saves" class="form-input" placeholder="收藏數" min="0">
           <input type="number" id="perf-shares" class="form-input" placeholder="分享數" min="0">
           <input type="number" id="perf-comments" class="form-input" placeholder="留言數" min="0">
-          <button id="btn-add-perf" class="btn btn-primary" style="white-space: nowrap;">登記成效</button>
+          <button id="btn-add-perf" class="btn btn-primary" style="white-space: nowrap;">+ 登記成效</button>
         </div>
 
         ${perfs.length ? `
@@ -131,6 +153,7 @@ export function renderSettings(container, state, app) {
                 <th>🔄 分享</th>
                 <th>💬 留言</th>
                 <th>日期</th>
+                <th>操作</th>
               </tr>
             </thead>
             <tbody>
@@ -143,6 +166,10 @@ export function renderSettings(container, state, app) {
                   <td><strong>${p.shares || 0}</strong></td>
                   <td>${p.comments || 0}</td>
                   <td style="color: var(--text-muted); font-size: 11px;">${(p.created_at || '').slice(0, 10)}</td>
+                  <td>
+                    <button class="btn btn-outline btn-sm btn-edit-perf" data-id="${p.id}" style="padding: 2px 6px; font-size: 11px;">✏️ 修改</button>
+                    <button class="btn btn-outline btn-sm btn-del-perf" data-id="${p.id}" style="padding: 2px 6px; font-size: 11px; color: #DC2626;">🗑️ 刪除</button>
+                  </td>
                 </tr>
               `).join('')}
             </tbody>
@@ -168,7 +195,10 @@ export function renderSettings(container, state, app) {
                 <div style="font-size: 13px;">${esc(t.citation)}</div>
                 ${t.note ? `<div class="cite-note">${esc(t.note)}</div>` : ''}
               </div>
-              <button class="btn btn-outline btn-sm btn-del-trusted" data-id="${t.id}">刪除</button>
+              <div style="display: flex; gap: 6px;">
+                <button class="btn btn-outline btn-sm btn-edit-trusted" data-id="${t.id}">✏️ 修改</button>
+                <button class="btn btn-outline btn-sm btn-del-trusted" data-id="${t.id}" style="color: #DC2626;">🗑️ 刪除</button>
+              </div>
             </div>
           `).join('') : '<p style="font-size: 12.5px; color: var(--text-muted);">清單是空的</p>'}
         </div>
@@ -229,6 +259,17 @@ export function renderSettings(container, state, app) {
     app.addTrustedSource(citation, note);
   });
 
+  container.querySelectorAll('.btn-edit-trusted').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const item = trusted.find(x => String(x.id) === btn.dataset.id);
+      if (!item) return;
+      const citation = prompt('修改文獻引用：', item.citation);
+      if (!citation || !citation.trim()) return;
+      const note = prompt('修改備註：', item.note || '') ?? '';
+      await app.updateTrustedSource(item.id, citation.trim(), note.trim());
+    });
+  });
+
   container.querySelectorAll('.btn-del-trusted').forEach(btn => {
     btn.addEventListener('click', () => {
       if (confirm('確定從信任清單刪除？')) app.deleteTrustedSource(btn.dataset.id);
@@ -246,6 +287,31 @@ export function renderSettings(container, state, app) {
   container.querySelectorAll('.chk-lib-active').forEach(chk => {
     chk.addEventListener('change', () => {
       app.toggleLibraryItem(chk.dataset.id, chk.checked);
+    });
+  });
+
+  container.querySelectorAll('.btn-edit-lib').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.ui.editingLibId = state.ui.editingLibId === btn.dataset.id ? null : btn.dataset.id;
+      app.render();
+    });
+  });
+
+  container.querySelectorAll('.btn-cancel-edit-lib').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.ui.editingLibId = null;
+      app.render();
+    });
+  });
+
+  container.querySelectorAll('.btn-save-edit-lib').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.id;
+      const title = container.querySelector(`.inp-edit-lib-title[data-id="${id}"]`)?.value.trim() || '';
+      const content = container.querySelector(`.inp-edit-lib-content[data-id="${id}"]`)?.value.trim() || '';
+      if (!content) return app.showToast('內容不可為空');
+      state.ui.editingLibId = null;
+      await app.updateLibraryItem(id, { title, content });
     });
   });
 
@@ -270,4 +336,30 @@ export function renderSettings(container, state, app) {
 
     app.logPerformance(ideaId, { platform, reach, saves, shares, comments });
   });
+
+  container.querySelectorAll('.btn-edit-perf').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const item = perfs.find(x => String(x.id) === btn.dataset.id);
+      if (!item) return;
+      const reach = prompt('修改觸及數：', item.reach || 0);
+      if (reach === null) return;
+      const saves = prompt('修改收藏數：', item.saves || 0);
+      if (saves === null) return;
+      const shares = prompt('修改分享數：', item.shares || 0);
+      if (shares === null) return;
+      const comments = prompt('修改留言數：', item.comments || 0);
+      if (comments === null) return;
+      await app.updatePerformanceLog(item.id, { reach, saves, shares, comments });
+    });
+  });
+
+  container.querySelectorAll('.btn-del-perf').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (confirm('確定刪除此筆成效紀錄？')) {
+        await app.deletePerformanceLog(btn.dataset.id);
+      }
+    });
+  });
+
+  bindMdArchiveEvents(container, allExports, state.currentDetail?.idea || null, state, app);
 }

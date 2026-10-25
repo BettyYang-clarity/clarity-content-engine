@@ -1,4 +1,4 @@
-import { esc, renderMarkdown } from '../utils.js';
+import { esc, renderMarkdown, renderMdArchiveSection, bindMdArchiveEvents } from '../utils.js';
 
 // Platform text limits (characters)
 const LIMITS = { threads: 500, igCaption: 2200 };
@@ -88,17 +88,22 @@ export function renderSocialMultiplier(container, state, app) {
   const blog = find('blog')?.content_payload || null;
   const isStale = outputs.some(o => o.is_stale);
   const sub = state.ui.socialTab || 'ig';
+  const editingSocial = !!state.ui.editingSocial;
 
   container.innerHTML = `
     <div class="main-panel" style="max-width: 1200px; margin: 0 auto;">
-      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; gap: 12px;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; gap: 12px; flex-wrap: wrap;">
         <div>
           <h2>📱 社群多平台矩陣</h2>
           <div style="font-size: 13.5px; color: var(--text-muted); margin-top: 4px;">Instagram 輪播 · Facebook · Threads × 3 · Blog</div>
         </div>
-        <div style="display: flex; gap: 8px;">
-          <button id="btn-export-social-pkg" class="btn btn-export btn-sm" ${!outputs.length ? 'disabled' : ''} title="一鍵打包下載整合 Markdown">📦 匯出成果</button>
-          <button id="btn-generate-multiplier" class="btn btn-accent" ${state.isProcessing ? 'disabled' : ''} style="white-space: nowrap;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          ${outputs.length > 0 ? `
+            <button id="btn-toggle-social-edit" class="btn btn-outline btn-sm">${editingSocial ? '取消修改' : '✏️ 修改目前平台內容'}</button>
+            <button id="btn-delete-social" class="btn btn-outline btn-sm" style="color: #DC2626;">🗑️ 刪除</button>
+          ` : ''}
+          <button id="btn-export-social-pkg" class="btn btn-export btn-sm" title="一鍵打包下載整合 Markdown 並存入紀錄">📦 匯出 .md 存檔</button>
+          <button id="btn-generate-multiplier" class="btn btn-accent btn-sm" ${state.isProcessing ? 'disabled' : ''} style="white-space: nowrap;">
             ${state.isProcessing ? '⏳ 生成中...' : (outputs.length ? '🔄 重新生成' : '✨ 生成各平台內容')}
           </button>
         </div>
@@ -128,33 +133,63 @@ export function renderSocialMultiplier(container, state, app) {
               </div>
             </div>
           </div>
-          <div class="carousel-deck">
-            ${(ig.slides || []).map((s, i) => {
-              const isCover = i === 0;
-              const isOutro = i === (ig.slides.length - 1) && ig.slides.length > 1;
-              return `
-              <div class="carousel-slide-card">
-                <div>
-                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <span class="slide-num-badge">P.${esc(s.slide_num)}</span>
-                    <span style="font-size: 11px; color: var(--text-muted);">${isCover ? '🌟 封面' : (isOutro ? '🎯 封底' : '📝 內頁')}</span>
-                  </div>
-                  <div class="slide-title">${esc(s.title)}</div>
-                  <div class="slide-body">${esc(s.subtitle)}</div>
-                </div>
-                <button class="btn btn-outline btn-sm btn-block btn-copy-slide-text" data-i="${i}" style="margin-top: 10px;">📋 複製此頁文字</button>
+
+          ${editingSocial ? `
+            <div class="info-card" style="margin-bottom: 16px; border: 2px solid var(--primary);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <span style="font-weight: 700; color: var(--primary);">✏️ 修改 IG 輪播卡片與 Caption</span>
+                <button type="button" id="btn-add-ig-slide" class="btn btn-outline btn-sm">➕ 新增一頁卡片</button>
               </div>
-            `;
-            }).join('')}
-          </div>
-          <div class="info-card" style="margin-top: 16px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 8px;">
-              <span style="font-weight: 700; color: var(--primary);">📝 Caption ${lengthBadge(ig.caption, LIMITS.igCaption)}</span>
-              <button id="btn-copy-ig-caption" class="btn btn-primary btn-sm">📋 複製</button>
+              <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; margin-bottom: 12px;">
+                ${(ig.slides || []).map((s, i) => `
+                  <div style="border: 1px solid var(--border); border-radius: 8px; padding: 10px; background: #F9FAFB;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                      <span class="slide-num-badge">P.${i + 1}</span>
+                      <button type="button" class="btn btn-outline btn-xs btn-del-ig-slide" data-i="${i}" style="color: #DC2626;">🗑️ 刪除</button>
+                    </div>
+                    <input type="text" class="form-input inp-ig-slide-title" data-i="${i}" value="${esc(s.title || '')}" placeholder="標題" style="margin-bottom: 6px; font-size: 13px;">
+                    <textarea class="form-textarea inp-ig-slide-sub" data-i="${i}" placeholder="內文" style="min-height: 70px; font-size: 12.5px;">${esc(s.subtitle || '')}</textarea>
+                  </div>
+                `).join('')}
+              </div>
+              <div class="form-group">
+                <label class="form-label">📝 IG Caption</label>
+                <textarea id="inp-ig-caption" class="form-textarea" style="min-height: 150px;">${esc(ig.caption || '')}</textarea>
+              </div>
+              <div style="display: flex; justify-content: flex-end; gap: 8px;">
+                <button type="button" class="btn btn-outline btn-sm btn-cancel-social-edit">取消</button>
+                <button type="button" id="btn-save-ig" class="btn btn-primary btn-sm">💾 確定儲存 IG 修改</button>
+              </div>
             </div>
-            <div class="article-view" style="max-height: 250px; font-family: var(--font-sans); font-size: 13.5px;">${esc(ig.caption)}</div>
-            ${ig.alt_text ? `<p style="font-size: 12px; color: var(--text-muted); margin-top: 8px;"><strong>替代文字：</strong>${esc(ig.alt_text)}</p>` : ''}
-          </div>
+          ` : `
+            <div class="carousel-deck">
+              ${(ig.slides || []).map((s, i) => {
+                const isCover = i === 0;
+                const isOutro = i === (ig.slides.length - 1) && ig.slides.length > 1;
+                return `
+                <div class="carousel-slide-card">
+                  <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                      <span class="slide-num-badge">P.${esc(s.slide_num)}</span>
+                      <span style="font-size: 11px; color: var(--text-muted);">${isCover ? '🌟 封面' : (isOutro ? '🎯 封底' : '📝 內頁')}</span>
+                    </div>
+                    <div class="slide-title">${esc(s.title)}</div>
+                    <div class="slide-body">${esc(s.subtitle)}</div>
+                  </div>
+                  <button class="btn btn-outline btn-sm btn-block btn-copy-slide-text" data-i="${i}" style="margin-top: 10px;">📋 複製此頁文字</button>
+                </div>
+              `;
+              }).join('')}
+            </div>
+            <div class="info-card" style="margin-top: 16px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 8px;">
+                <span style="font-weight: 700; color: var(--primary);">📝 Caption ${lengthBadge(ig.caption, LIMITS.igCaption)}</span>
+                <button id="btn-copy-ig-caption" class="btn btn-primary btn-sm">📋 複製</button>
+              </div>
+              <div class="article-view" style="max-height: 250px; font-family: var(--font-sans); font-size: 13.5px;">${esc(ig.caption)}</div>
+              ${ig.alt_text ? `<p style="font-size: 12px; color: var(--text-muted); margin-top: 8px;"><strong>替代文字：</strong>${esc(ig.alt_text)}</p>` : ''}
+            </div>
+          `}
         ` : ''}
 
         ${sub === 'fb' && fb ? `
@@ -163,25 +198,57 @@ export function renderSocialMultiplier(container, state, app) {
               <span style="font-weight: 700; color: var(--primary);">📘 Facebook 貼文</span>
               <button id="btn-copy-fb" class="btn btn-primary btn-sm">📋 複製</button>
             </div>
-            <div class="article-view" style="font-family: var(--font-sans); font-size: 14.5px;">${esc(fb.post_text)}</div>
+            ${editingSocial ? `
+              <textarea id="inp-fb-text" class="form-textarea" style="min-height: 220px;">${esc(fb.post_text || '')}</textarea>
+              <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px;">
+                <button type="button" class="btn btn-outline btn-sm btn-cancel-social-edit">取消</button>
+                <button type="button" id="btn-save-fb" class="btn btn-primary btn-sm">💾 確定儲存 FB 修改</button>
+              </div>
+            ` : `
+              <div class="article-view" style="font-family: var(--font-sans); font-size: 14.5px;">${esc(fb.post_text)}</div>
+            `}
           </div>
         ` : ''}
 
         ${sub === 'threads' && Array.isArray(threads) ? `
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
-            ${threads.map((t, i) => `
-              <div class="info-card" style="display: flex; flex-direction: column; justify-content: space-between;">
-                <div>
-                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 6px;">
-                    <span style="font-weight: 700; font-size: 13px; color: var(--accent);">${esc(t.label)}</span>
-                    ${lengthBadge(t.text, LIMITS.threads)}
-                  </div>
-                  <p style="font-size: 14px; line-height: 1.7; white-space: pre-wrap;">${esc(t.text)}</p>
-                </div>
-                <button class="btn btn-outline btn-sm btn-block btn-copy-thread" data-i="${i}" style="margin-top: 14px;">📋 複製</button>
+          ${editingSocial ? `
+            <div class="info-card" style="border: 2px solid var(--primary);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <span style="font-weight: 700; color: var(--primary);">✏️ 修改 Threads 貼文組</span>
+                <button type="button" id="btn-add-thread" class="btn btn-outline btn-sm">➕ 新增一則 Threads</button>
               </div>
-            `).join('')}
-          </div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px;">
+                ${threads.map((t, i) => `
+                  <div style="border: 1px solid var(--border); border-radius: 8px; padding: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 6px;">
+                      <input type="text" class="form-input inp-thread-label" data-i="${i}" value="${esc(t.label || '')}" style="font-size: 12.5px; font-weight: 700;">
+                      <button type="button" class="btn btn-outline btn-xs btn-del-thread" data-i="${i}" style="color: #DC2626;">🗑️</button>
+                    </div>
+                    <textarea class="form-textarea inp-thread-text" data-i="${i}" style="min-height: 150px; font-size: 13.5px;">${esc(t.text || '')}</textarea>
+                  </div>
+                `).join('')}
+              </div>
+              <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px;">
+                <button type="button" class="btn btn-outline btn-sm btn-cancel-social-edit">取消</button>
+                <button type="button" id="btn-save-threads" class="btn btn-primary btn-sm">💾 確定儲存 Threads 修改</button>
+              </div>
+            </div>
+          ` : `
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
+              ${threads.map((t, i) => `
+                <div class="info-card" style="display: flex; flex-direction: column; justify-content: space-between;">
+                  <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 6px;">
+                      <span style="font-weight: 700; font-size: 13px; color: var(--accent);">${esc(t.label)}</span>
+                      ${lengthBadge(t.text, LIMITS.threads)}
+                    </div>
+                    <p style="font-size: 14px; line-height: 1.7; white-space: pre-wrap;">${esc(t.text)}</p>
+                  </div>
+                  <button class="btn btn-outline btn-sm btn-block btn-copy-thread" data-i="${i}" style="margin-top: 14px;">📋 複製</button>
+                </div>
+              `).join('')}
+            </div>
+          `}
         ` : ''}
 
         ${sub === 'blog' && blog ? `
@@ -193,10 +260,31 @@ export function renderSocialMultiplier(container, state, app) {
               </div>
               <button id="btn-copy-blog" class="btn btn-primary btn-sm">📋 複製 Markdown</button>
             </div>
-            <div class="article-view markdown-body">${renderMarkdown(blog.markdown_content)}</div>
+            ${editingSocial ? `
+              <div class="form-group">
+                <label class="form-label">SEO 標題</label>
+                <input type="text" id="inp-blog-title" class="form-input" value="${esc(blog.seo_title || '')}">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Meta 摘要</label>
+                <input type="text" id="inp-blog-meta" class="form-input" value="${esc(blog.meta_description || '')}">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Markdown 內文</label>
+                <textarea id="inp-blog-md" class="form-textarea" style="min-height: 260px;">${esc(blog.markdown_content || '')}</textarea>
+              </div>
+              <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px;">
+                <button type="button" class="btn btn-outline btn-sm btn-cancel-social-edit">取消</button>
+                <button type="button" id="btn-save-blog" class="btn btn-primary btn-sm">💾 確定儲存 Blog 修改</button>
+              </div>
+            ` : `
+              <div class="article-view markdown-body">${renderMarkdown(blog.markdown_content)}</div>
+            `}
           </div>
         ` : ''}
       `}
+
+      ${renderMdArchiveSection(detail?.exports || [], currentIdea, state)}
     </div>
   `;
 
@@ -207,7 +295,86 @@ export function renderSocialMultiplier(container, state, app) {
     });
   });
 
-  container.querySelector('#btn-export-social-pkg')?.addEventListener('click', () => app.exportIdeaPackage(currentIdea.id));
+  container.querySelector('#btn-toggle-social-edit')?.addEventListener('click', () => {
+    state.ui.editingSocial = !state.ui.editingSocial;
+    app.render();
+  });
+  container.querySelectorAll('.btn-cancel-social-edit').forEach(b => b.addEventListener('click', () => {
+    state.ui.editingSocial = false;
+    app.render();
+  }));
+  container.querySelector('#btn-delete-social')?.addEventListener('click', async () => {
+    const platMap = { ig: 'instagram', fb: 'facebook', threads: 'threads', blog: 'blog' };
+    const p = platMap[sub] || 'all';
+    if (confirm(`確定要刪除目前平台（${p}）的內容嗎？`)) {
+      await app.deleteSocialPlatform(currentIdea.id, p);
+    }
+  });
+
+  // IG Edit actions
+  container.querySelector('#btn-add-ig-slide')?.addEventListener('click', async () => {
+    const slides = [...(ig?.slides || [])];
+    slides.push({ slide_num: slides.length + 1, type: 'content', title: '新頁面標題', subtitle: '新頁面內文', visual_prompt: ig?.inner_page_bg_prompt || '' });
+    await app.saveSocialPlatform(currentIdea.id, 'instagram', { ...ig, slides }, true);
+  });
+  container.querySelectorAll('.btn-del-ig-slide').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const idx = Number(btn.dataset.i);
+      const slides = (ig?.slides || []).filter((_, i) => i !== idx).map((s, i) => ({ ...s, slide_num: i + 1 }));
+      await app.saveSocialPlatform(currentIdea.id, 'instagram', { ...ig, slides }, true);
+    });
+  });
+  container.querySelector('#btn-save-ig')?.addEventListener('click', async () => {
+    const titles = Array.from(container.querySelectorAll('.inp-ig-slide-title'));
+    const subs = Array.from(container.querySelectorAll('.inp-ig-slide-sub'));
+    const slides = (ig?.slides || []).map((s, i) => ({
+      ...s,
+      slide_num: i + 1,
+      title: titles[i]?.value || '',
+      subtitle: subs[i]?.value || ''
+    }));
+    const caption = container.querySelector('#inp-ig-caption')?.value || '';
+    await app.saveSocialPlatform(currentIdea.id, 'instagram', { ...ig, slides, caption });
+  });
+
+  // FB Edit action
+  container.querySelector('#btn-save-fb')?.addEventListener('click', async () => {
+    const post_text = container.querySelector('#inp-fb-text')?.value || '';
+    await app.saveSocialPlatform(currentIdea.id, 'facebook', { post_text });
+  });
+
+  // Threads Edit actions
+  container.querySelector('#btn-add-thread')?.addEventListener('click', async () => {
+    const next = [...(threads || []), { type: 'custom', label: `④ 補充篇`, text: '' }];
+    await app.saveSocialPlatform(currentIdea.id, 'threads', next, true);
+  });
+  container.querySelectorAll('.btn-del-thread').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const idx = Number(btn.dataset.i);
+      const next = (threads || []).filter((_, i) => i !== idx);
+      await app.saveSocialPlatform(currentIdea.id, 'threads', next, true);
+    });
+  });
+  container.querySelector('#btn-save-threads')?.addEventListener('click', async () => {
+    const labels = Array.from(container.querySelectorAll('.inp-thread-label'));
+    const texts = Array.from(container.querySelectorAll('.inp-thread-text'));
+    const next = (threads || []).map((t, i) => ({
+      ...t,
+      label: labels[i]?.value || t.label,
+      text: texts[i]?.value || ''
+    }));
+    await app.saveSocialPlatform(currentIdea.id, 'threads', next);
+  });
+
+  // Blog Edit action
+  container.querySelector('#btn-save-blog')?.addEventListener('click', async () => {
+    const seo_title = container.querySelector('#inp-blog-title')?.value || '';
+    const meta_description = container.querySelector('#inp-blog-meta')?.value || '';
+    const markdown_content = container.querySelector('#inp-blog-md')?.value || '';
+    await app.saveSocialPlatform(currentIdea.id, 'blog', { seo_title, meta_description, markdown_content });
+  });
+
+  container.querySelector('#btn-export-social-pkg')?.addEventListener('click', () => app.exportIdeaPackage(currentIdea.id, { note: '全平台社群完稿' }));
   container.querySelector('#btn-generate-multiplier')?.addEventListener('click', () => app.generateMultiplier(currentIdea.id));
 
   const copyText = (text, msg) => { navigator.clipboard.writeText(text || ''); app.showToast(msg); };
@@ -235,4 +402,6 @@ export function renderSocialMultiplier(container, state, app) {
   container.querySelector('#btn-copy-ig-caption')?.addEventListener('click', () => copyText(ig.caption, '已複製 Caption'));
   container.querySelector('#btn-copy-fb')?.addEventListener('click', () => copyText(fb.post_text, '已複製 Facebook 貼文'));
   container.querySelector('#btn-copy-blog')?.addEventListener('click', () => copyText(blog.markdown_content, '已複製 Blog Markdown'));
+
+  bindMdArchiveEvents(container, detail?.exports || [], currentIdea, state, app);
 }

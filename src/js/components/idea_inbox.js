@@ -1,4 +1,4 @@
-import { esc, safeUrl, CITATION_STATUS } from '../utils.js';
+import { esc, safeUrl, CITATION_STATUS, renderMdArchiveSection, bindMdArchiveEvents } from '../utils.js';
 
 const STATUS_LABELS = {
   INBOX: '靈感待研究',
@@ -139,24 +139,88 @@ export function renderIdeaInbox(container, state, app) {
             <h3>👈 請從左側選擇或新增一個靈感主題</h3>
           </div>
         ` : `
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; gap: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; gap: 12px; flex-wrap: wrap;">
             <div>
               <span class="badge badge-${esc(currentIdea.status.toLowerCase())}" style="margin-bottom: 6px;">${esc(getStatusLabel(currentIdea.status))}</span>
               <h2>${esc(currentIdea.title)}</h2>
               <div style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">
                 來源類型：<strong>${esc(currentIdea.source_type || '觀察')}</strong>
+                ${currentIdea.author ? ` · 作者：${esc(currentIdea.author)}` : ''}
                 ${currentIdea.source_url ? ` · <a href="${safeUrl(currentIdea.source_url)}" target="_blank" rel="noopener" style="color: var(--primary);">來源連結 ↗</a>` : ''}
               </div>
             </div>
-            <div style="display: flex; gap: 8px;">
-              <button id="btn-one-click-studio" class="btn btn-studio" ${state.isProcessing ? 'disabled' : ''} style="white-space: nowrap;" title="一鍵自動完成研究、起草母文與 CLEAR 審查，之後隨時可精雕">
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+              <button id="btn-edit-idea" class="btn btn-outline btn-sm">✏️ 修改靈感</button>
+              <button id="btn-delete-idea" class="btn btn-outline btn-sm" style="color: #DC2626;">🗑️ 刪除</button>
+              <button id="btn-one-click-studio" class="btn btn-studio btn-sm" ${state.isProcessing ? 'disabled' : ''} style="white-space: nowrap;" title="一鍵自動完成研究、起草母文與 CLEAR 審查">
                 ⚡ 一鍵生成初稿
               </button>
-              <button id="btn-run-research" class="btn btn-primary" ${state.isProcessing ? 'disabled' : ''} style="white-space: nowrap;">
+              <button id="btn-run-research" class="btn btn-primary btn-sm" ${state.isProcessing ? 'disabled' : ''} style="white-space: nowrap;">
                 ${state.isProcessing ? '⏳ 處理中...' : (pack ? '🔄 重新研究' : '🔍 開始研究')}
               </button>
             </div>
           </div>
+
+          ${state.ui.editingIdea ? `
+            <div class="info-card" style="margin-bottom: 16px; border: 2px solid var(--primary);">
+              <div class="info-card-header"><span>✏️ 修改靈感資料</span></div>
+              <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 8px; margin-bottom: 8px;">
+                <input type="text" id="edit-idea-title" class="form-input" value="${esc(currentIdea.title)}" placeholder="主題標題">
+                <select id="edit-idea-type" class="form-select">
+                  ${[['Observation', '觀察 / 隨想'], ['YouTube', 'YouTube 影片'], ['Article', '網路文章'], ['Book', '書籍'], ['Research', '研究論文'], ['Experience', '個人經驗']]
+                    .map(([v, l]) => `<option value="${v}" ${currentIdea.source_type === v ? 'selected' : ''}>${l}</option>`).join('')}
+                </select>
+              </div>
+              <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 8px; margin-bottom: 8px;">
+                <input type="text" id="edit-idea-url" class="form-input" value="${esc(currentIdea.source_url || '')}" placeholder="來源網址（可選）">
+                <input type="text" id="edit-idea-author" class="form-input" value="${esc(currentIdea.author || '')}" placeholder="作者 / 創作者（可選）">
+              </div>
+              <textarea id="edit-idea-notes" class="form-textarea" placeholder="原始靈感筆記...">${esc(currentIdea.raw_notes || '')}</textarea>
+              <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
+                <button id="btn-cancel-edit-idea" class="btn btn-outline btn-sm">取消</button>
+                <button id="btn-confirm-edit-idea" class="btn btn-primary btn-sm">💾 確定儲存</button>
+              </div>
+            </div>
+          ` : (currentIdea.raw_notes ? `
+            <div class="info-card" style="margin-bottom: 14px; background: #FAF9F6;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 12.5px; font-weight: 700; color: var(--primary);">📝 原始靈感筆記</span>
+              </div>
+              <p style="font-size: 13.5px; color: #374151; margin-top: 4px; white-space: pre-wrap;">${esc(currentIdea.raw_notes)}</p>
+            </div>
+          ` : '')}
+
+          ${state.ui.editingResearch ? `
+            <div class="info-card" style="margin-bottom: 16px; border: 2px solid #4F46E5;">
+              <div class="info-card-header" style="color: #4F46E5;"><span>✏️ 新增 / 修改研究重點與核心洞見</span></div>
+              <div class="form-group">
+                <label class="form-label">💡 核心洞見</label>
+                <input type="text" id="edit-res-insight" class="form-input" value="${esc(pack?.central_insight || currentIdea.title)}">
+              </div>
+              <div class="form-group">
+                <label class="form-label">📄 來源摘要</label>
+                <textarea id="edit-res-summary" class="form-textarea">${esc(pack?.source_summary || '')}</textarea>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;" class="form-group">
+                <div>
+                  <label class="form-label">📚 主要視角 / 理論概念</label>
+                  <input type="text" id="edit-res-framework" class="form-input" value="${esc(grounding.primary_framework || '')}">
+                </div>
+                <div>
+                  <label class="form-label">👤 相關作者 / 研究者（逗號分隔）</label>
+                  <input type="text" id="edit-res-theorists" class="form-input" value="${esc((grounding.theorists || []).join(', '))}">
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">🔬 佐證說明要點</label>
+                <textarea id="edit-res-explanation" class="form-textarea">${esc(grounding.theoretical_explanation || '')}</textarea>
+              </div>
+              <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
+                <button id="btn-cancel-edit-res" class="btn btn-outline btn-sm">取消</button>
+                <button id="btn-confirm-edit-res" class="btn btn-primary btn-sm">💾 確定儲存研究包</button>
+              </div>
+            </div>
+          ` : ''}
 
           ${pack ? `
             <div class="research-container">
@@ -167,7 +231,13 @@ export function renderIdeaInbox(container, state, app) {
               ` : ''}
 
               <div class="info-card">
-                <div class="info-card-header"><span>💡 核心洞見</span></div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                  <div class="info-card-header" style="margin-bottom: 0;"><span>💡 核心洞見</span></div>
+                  <div style="display: flex; gap: 6px;">
+                    <button id="btn-edit-research" class="btn btn-outline btn-sm">✏️ 修改研究重點</button>
+                    <button id="btn-delete-research" class="btn btn-outline btn-sm" style="color: #DC2626;">🗑️ 刪除研究包</button>
+                  </div>
+                </div>
                 <p style="font-size: 15px; font-weight: 600; color: var(--primary);">${esc(pack.central_insight)}</p>
                 <p style="font-size: 13px; color: var(--text-muted); margin-top: 8px;"><strong>來源摘要：</strong>${esc(pack.source_summary)}</p>
               </div>
@@ -214,17 +284,23 @@ export function renderIdeaInbox(container, state, app) {
                   <h4 style="font-size: 14px; color: var(--primary);">✓ 研究包已就緒</h4>
                   <p style="font-size: 12.5px; color: #4B5563;">標示「⚠️」的文獻在母文章中會被標記 [VERIFY]，核准前必須處理。</p>
                 </div>
-                <button id="btn-go-to-interview" class="btn btn-accent btn-sm">進行洞見訪談 ➔</button>
+                <button id="btn-go-to-interview" class="btn btn-accent btn-sm">進行洞見與母文 ➔</button>
               </div>
             </div>
           ` : `
-            <div style="text-align: center; padding: 60px 20px; border: 2px dashed var(--border); border-radius: 10px;">
+            <div style="text-align: center; padding: 50px 20px; border: 2px dashed var(--border); border-radius: 10px;">
               <p style="font-size: 14px; color: var(--text-muted);">尚未研究。</p>
-              <p style="font-size: 12.5px; color: var(--text-light); margin-top: 4px;">
-                會依序：讀取來源內容 → 尋找跨領域佐證 → 用 Google 搜尋逐條查證來源（約 30–90 秒）
+              <p style="font-size: 12.5px; color: var(--text-light); margin: 4px 0 14px;">
+                可點擊右上角「🔍 開始研究」由 AI 查證，或手動新增研究重點，也可直接跳至「洞見與母文」自由書寫。
               </p>
+              <div style="display: flex; justify-content: center; gap: 8px;">
+                <button id="btn-manual-research" class="btn btn-outline btn-sm">➕ 手動新增研究重點</button>
+                <button id="btn-go-to-interview" class="btn btn-accent btn-sm">直接前往洞見與母文 ➔</button>
+              </div>
             </div>
           `}
+
+          ${renderMdArchiveSection(detail?.exports || [], currentIdea, state)}
         `}
       </div>
     </div>
@@ -254,7 +330,72 @@ export function renderIdeaInbox(container, state, app) {
     card.addEventListener('click', () => app.selectIdea(card.dataset.id));
   });
 
+  // Idea Edit / Delete
+  container.querySelector('#btn-edit-idea')?.addEventListener('click', () => {
+    state.ui.editingIdea = !state.ui.editingIdea;
+    app.render();
+  });
+  container.querySelector('#btn-cancel-edit-idea')?.addEventListener('click', () => {
+    state.ui.editingIdea = false;
+    app.render();
+  });
+  container.querySelector('#btn-confirm-edit-idea')?.addEventListener('click', async () => {
+    const title = container.querySelector('#edit-idea-title').value.trim();
+    if (!title) return app.showToast('標題不可為空');
+    await app.updateIdea(currentIdea.id, {
+      title,
+      source_type: container.querySelector('#edit-idea-type').value,
+      source_url: container.querySelector('#edit-idea-url').value.trim(),
+      author: container.querySelector('#edit-idea-author').value.trim(),
+      raw_notes: container.querySelector('#edit-idea-notes').value
+    });
+  });
+  container.querySelector('#btn-delete-idea')?.addEventListener('click', async () => {
+    if (confirm(`確定要刪除靈感「${currentIdea.title}」及其相關文章嗎？`)) {
+      await app.deleteIdea(currentIdea.id);
+    }
+  });
+
+  // Research Pack Edit / Delete
+  container.querySelector('#btn-edit-research')?.addEventListener('click', () => {
+    state.ui.editingResearch = !state.ui.editingResearch;
+    app.render();
+  });
+  container.querySelector('#btn-manual-research')?.addEventListener('click', () => {
+    state.ui.editingResearch = true;
+    app.render();
+  });
+  container.querySelector('#btn-cancel-edit-res')?.addEventListener('click', () => {
+    state.ui.editingResearch = false;
+    app.render();
+  });
+  container.querySelector('#btn-confirm-edit-res')?.addEventListener('click', async () => {
+    const central_insight = container.querySelector('#edit-res-insight').value.trim();
+    const source_summary = container.querySelector('#edit-res-summary').value.trim();
+    const primary_framework = container.querySelector('#edit-res-framework').value.trim();
+    const theorists = container.querySelector('#edit-res-theorists').value.split(/[,，、]/).map(s => s.trim()).filter(Boolean);
+    const theoretical_explanation = container.querySelector('#edit-res-explanation').value.trim();
+    await app.updateResearchPack(currentIdea.id, {
+      ...(pack || {}),
+      central_insight,
+      source_summary,
+      psychology_grounding: {
+        ...(grounding || {}),
+        primary_framework,
+        theorists,
+        theoretical_explanation
+      }
+    });
+  });
+  container.querySelector('#btn-delete-research')?.addEventListener('click', async () => {
+    if (confirm('確定要刪除此研究包嗎？')) {
+      await app.deleteResearchPack(currentIdea.id);
+    }
+  });
+
   container.querySelector('#btn-one-click-studio')?.addEventListener('click', () => app.runOneClickStudio(currentIdea.id));
   container.querySelector('#btn-run-research')?.addEventListener('click', () => app.runResearch(currentIdea.id));
   container.querySelector('#btn-go-to-interview')?.addEventListener('click', () => app.switchTab('interview'));
+
+  bindMdArchiveEvents(container, detail?.exports || [], currentIdea, state, app);
 }

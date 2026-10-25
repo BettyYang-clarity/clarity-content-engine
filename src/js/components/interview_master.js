@@ -1,4 +1,4 @@
-import { esc, renderMarkdown } from '../utils.js';
+import { esc, renderMarkdown, downloadMarkdownFile, renderMdArchiveSection, bindMdArchiveEvents } from '../utils.js';
 
 const HINTS = [
   { icon: '🌱', title: '為什麼我想聊這件事？', desc: '觸動你注意這個主題的原因，或最近卡在你心裡的一個問題。' },
@@ -62,7 +62,11 @@ export function renderInterviewMaster(container, state, app) {
         <div class="interview-panel-header">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px;">
             <h3 style="margin-bottom: 0;">🎙️ 個人洞見與筆記空間</h3>
-            <button id="btn-interview-new-topic" class="btn btn-outline btn-xs" title="直接新建主題，不需回第一步">+ 新主題</button>
+            <div style="display: flex; gap: 4px;">
+              <button type="button" id="btn-interview-new-topic" class="btn btn-outline btn-xs" title="直接新建主題">+ 新增主題</button>
+              <button type="button" id="btn-interview-edit-topic" class="btn btn-outline btn-xs" title="修改目前主題名稱">✏️ 改名</button>
+              <button type="button" id="btn-interview-del-topic" class="btn btn-outline btn-xs" style="color: #DC2626;" title="刪除目前主題">🗑️ 刪除</button>
+            </div>
           </div>
           
           <!-- Quick Topic Selector -->
@@ -145,7 +149,13 @@ export function renderInterviewMaster(container, state, app) {
             </div>
           </div>
 
-          <div style="margin-top: 14px;">
+          <div style="display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap;">
+            <button type="button" id="btn-save-notes-only" class="btn btn-outline btn-sm" style="flex: 1;">💾 確定儲存筆記</button>
+            <button type="button" id="btn-export-notes-md" class="btn btn-outline btn-sm" style="flex: 1;">📥 筆記存為 .md</button>
+            <button type="button" id="btn-clear-notes" class="btn btn-outline btn-sm" style="color: #DC2626;">🗑️ 清空</button>
+          </div>
+
+          <div style="margin-top: 10px;">
             <button type="submit" class="btn btn-primary btn-block" ${state.isProcessing ? 'disabled' : ''}>
               ${state.isProcessing ? '⏳ 正在依據筆記撰寫母文章與 CLEAR 審查...' : (hasArticle ? '🔄 依新筆記重新生成母文章' : '✨ 依筆記生成母文章（含 CLEAR 審查）')}
             </button>
@@ -166,35 +176,37 @@ export function renderInterviewMaster(container, state, app) {
           </div>
           ${hasArticle && !editing ? `
             <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
-              <button id="btn-edit-master" class="btn btn-outline btn-sm">✏️ 編輯</button>
+              <button id="btn-edit-master" class="btn btn-outline btn-sm">✏️ 修改母文</button>
+              <button id="btn-delete-master" class="btn btn-outline btn-sm" style="color: #DC2626;">🗑️ 刪除母文</button>
               <button id="btn-toggle-approve" class="btn ${master.is_approved ? 'btn-secondary' : 'btn-accent'} btn-sm" ${!master.is_approved && markers > 0 ? 'disabled title="請先處理 [VERIFY]"' : ''}>
-                ${master.is_approved ? '取消核准' : '🎯 核准 (APPROVED)'}
+                ${master.is_approved ? '取消核准' : '🎯 確定核准 (APPROVED)'}
               </button>
             </div>
           ` : ''}
         </div>
 
-        ${!hasArticle ? `
-          <div style="text-align: center; padding: 80px 20px; border: 2px dashed var(--border); border-radius: 10px;">
-            <p style="font-size: 14px; color: var(--text-muted);">尚未生成母文章。</p>
+        ${!hasArticle && !editing ? `
+          <div style="text-align: center; padding: 60px 20px; border: 2px dashed var(--border); border-radius: 10px;">
+            <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 12px;">尚未生成母文章。你可以由左側筆記讓 AI 生成，或直接手動新增母文章：</p>
+            <button id="btn-create-blank-master" class="btn btn-outline btn-sm">➕ 手動新增 / 貼上母文章</button>
           </div>
         ` : `
           ${markers > 0 ? `
             <div class="source-banner cite-bad" style="margin-bottom: 14px;">
               ⚠️ 文章中有 <strong>${markers}</strong> 處 <mark class="verify-mark">[VERIFY]</mark>（未查證的文獻或需要你補充的個人例子）。
-              請點「編輯」補上或刪除，處理完才能核准。
+              請點「修改母文」補上或刪除，處理完才能核准。
             </div>
           ` : ''}
 
           ${review ? renderReview(review) : ''}
 
           ${editing ? `
-            <textarea id="master-editor" class="form-textarea master-editor">${esc(master.master_article)}</textarea>
+            <textarea id="master-editor" class="form-textarea master-editor" placeholder="在此輸入或修改母文章 Markdown 內容...">${esc(master?.master_article || '')}</textarea>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
               <span id="editor-verify-count" style="font-size: 12px; color: var(--text-muted);"></span>
               <div style="display: flex; gap: 8px;">
                 <button id="btn-cancel-edit" class="btn btn-outline btn-sm">取消</button>
-                <button id="btn-save-edit" class="btn btn-primary btn-sm" ${state.isProcessing ? 'disabled' : ''}>💾 儲存修改</button>
+                <button id="btn-save-edit" class="btn btn-primary btn-sm" ${state.isProcessing ? 'disabled' : ''}>💾 確定儲存修改</button>
               </div>
             </div>
             <p style="font-size: 11.5px; color: var(--text-muted); margin-top: 6px;">儲存後會取消核准，舊的 CLEAR 審查會標示為「已過期」，建議重新審查。</p>
@@ -204,10 +216,10 @@ export function renderInterviewMaster(container, state, app) {
 
           ${!editing ? `
             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; flex-wrap: wrap; gap: 8px;">
-              <div style="display: flex; gap: 8px;">
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                 <button id="btn-copy-master" class="btn btn-outline btn-sm">📋 複製全文</button>
                 <button id="btn-show-versions" class="btn btn-outline btn-sm">🕘 版本紀錄</button>
-                <button id="btn-export-pkg" class="btn btn-export btn-sm" title="一鍵打包下載整合 Markdown，並可自動同步至指定資料夾">📦 匯出成果</button>
+                <button id="btn-export-pkg" class="btn btn-export btn-sm" title="一鍵打包下載整合 Markdown，並存入下方 MD 存檔紀錄">📦 匯出 .md 存檔</button>
               </div>
               <div style="display: flex; gap: 10px;">
                 <button id="btn-goto-podcast" class="btn btn-secondary btn-sm" ${!master.is_approved ? 'disabled title="需先核准母文章"' : ''}>🎙️ 播客錄音室 ➔</button>
@@ -217,6 +229,8 @@ export function renderInterviewMaster(container, state, app) {
             <div id="versions-panel"></div>
           ` : ''}
         `}
+
+        ${renderMdArchiveSection(detail?.exports || [], currentIdea, state)}
       </div>
     </div>
   `;
@@ -227,7 +241,7 @@ export function renderInterviewMaster(container, state, app) {
     if (id) app.selectIdea(id);
   });
 
-  // Create New Topic directly in Interview tab
+  // Create / Rename / Delete Topic directly in Interview tab
   container.querySelector('#btn-interview-new-topic')?.addEventListener('click', async () => {
     const title = prompt('請輸入新主題標題（例如：為什麼開會越多決策越慢）：');
     if (title && title.trim()) {
@@ -236,6 +250,45 @@ export function renderInterviewMaster(container, state, app) {
         source_type: 'Observation',
         raw_notes: '直接在洞見母文建立的主題'
       });
+    }
+  });
+  container.querySelector('#btn-interview-edit-topic')?.addEventListener('click', async () => {
+    if (!currentIdea) return;
+    const title = prompt('修改主題標題：', currentIdea.title);
+    if (title && title.trim() && title.trim() !== currentIdea.title) {
+      await app.updateIdea(currentIdea.id, { title: title.trim() });
+    }
+  });
+  container.querySelector('#btn-interview-del-topic')?.addEventListener('click', async () => {
+    if (!currentIdea) return;
+    if (confirm(`確定要刪除主題「${currentIdea.title}」及其相關文章嗎？`)) {
+      await app.deleteIdea(currentIdea.id);
+    }
+  });
+
+  // Save / Export / Clear Notes without triggering AI
+  container.querySelector('#btn-save-notes-only')?.addEventListener('click', async () => {
+    const freeNotes = container.querySelector('#free-notes-editor')?.value || '';
+    await app.saveInterviewOnly(currentIdea.id, {
+      free_notes: freeNotes,
+      images: state.ui.interviewImages || []
+    });
+  });
+  container.querySelector('#btn-export-notes-md')?.addEventListener('click', async () => {
+    const freeNotes = container.querySelector('#free-notes-editor')?.value.trim() || '';
+    if (!freeNotes) return app.showToast('筆記目前是空的');
+    await app.exportIdeaPackage(currentIdea.id, {
+      title: `${currentIdea.title}（個人筆記）`,
+      note: '個人洞見筆記',
+      markdown_content: `# ${currentIdea.title} - 個人洞見與筆記\n\n${freeNotes}\n`
+    });
+  });
+  container.querySelector('#btn-clear-notes')?.addEventListener('click', async () => {
+    const ed = container.querySelector('#free-notes-editor');
+    if (!ed || !ed.value) return;
+    if (confirm('確定要清空目前的筆記內容嗎？')) {
+      ed.value = '';
+      await app.saveInterviewOnly(currentIdea.id, { free_notes: '', images: [] });
     }
   });
 
@@ -322,10 +375,19 @@ export function renderInterviewMaster(container, state, app) {
     app.approveMaster(currentIdea.id, !master.is_approved);
   });
 
-  // Edit mode
+  // Edit / Create Blank / Delete Master mode
   container.querySelector('#btn-edit-master')?.addEventListener('click', () => {
     state.ui.editingMaster = true;
     app.render();
+  });
+  container.querySelector('#btn-create-blank-master')?.addEventListener('click', () => {
+    state.ui.editingMaster = true;
+    app.render();
+  });
+  container.querySelector('#btn-delete-master')?.addEventListener('click', async () => {
+    if (confirm('確定要刪除此篇母文章嗎？（歷史版本紀錄仍會保留）')) {
+      await app.deleteMasterArticle(currentIdea.id);
+    }
   });
   container.querySelector('#btn-cancel-edit')?.addEventListener('click', () => {
     state.ui.editingMaster = false;
@@ -359,13 +421,13 @@ export function renderInterviewMaster(container, state, app) {
 
   // Export
   container.querySelector('#btn-export-pkg')?.addEventListener('click', () => {
-    app.exportIdeaPackage(currentIdea.id);
+    app.exportIdeaPackage(currentIdea.id, { note: '母文章定稿' });
   });
 
   // Versions
-  container.querySelector('#btn-show-versions')?.addEventListener('click', async () => {
+  const renderVersionsPanel = async () => {
     const panel = container.querySelector('#versions-panel');
-    if (panel.innerHTML) { panel.innerHTML = ''; return; }
+    if (!panel) return;
     const versions = await app.loadVersions(currentIdea.id);
     panel.innerHTML = `
       <div class="info-card" style="margin-top: 12px;">
@@ -373,11 +435,21 @@ export function renderInterviewMaster(container, state, app) {
         ${versions.length ? versions.map(v => `
           <div class="version-row">
             <span>${v.origin === 'ai' ? '🤖 AI 生成' : '✏️ 手動編輯'} · ${esc(v.created_at)} · ${v.content.length} 字</span>
-            <button class="btn btn-outline btn-sm btn-load-version" data-id="${v.id}">載入到編輯器</button>
+            <div style="display: flex; gap: 6px;">
+              <button class="btn btn-outline btn-sm btn-dl-version" data-id="${v.id}">📥 下載 .md</button>
+              <button class="btn btn-outline btn-sm btn-load-version" data-id="${v.id}">✏️ 載入修改</button>
+              <button class="btn btn-outline btn-sm btn-del-version" data-id="${v.id}" style="color: #DC2626;">🗑️ 刪除</button>
+            </div>
           </div>
         `).join('') : '<p style="font-size: 12.5px; color: var(--text-muted);">沒有版本紀錄</p>'}
       </div>
     `;
+    panel.querySelectorAll('.btn-dl-version').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const v = versions.find(x => String(x.id) === btn.dataset.id);
+        if (v) downloadMarkdownFile(`${currentIdea.title}_v${v.id}.md`, v.content);
+      });
+    });
     panel.querySelectorAll('.btn-load-version').forEach(btn => {
       btn.addEventListener('click', () => {
         const v = versions.find(x => String(x.id) === btn.dataset.id);
@@ -386,13 +458,29 @@ export function renderInterviewMaster(container, state, app) {
         app.render();
         const ed = document.querySelector('#master-editor');
         if (ed) { ed.value = v.content; ed.dispatchEvent(new Event('input')); }
-        app.showToast('已載入舊版本，確認後按「儲存修改」');
+        app.showToast('已載入舊版本，確認後按「💾 確定儲存修改」');
       });
     });
+    panel.querySelectorAll('.btn-del-version').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (confirm('確定要刪除此條版本紀錄？')) {
+          await app.deleteMasterVersion(currentIdea.id, btn.dataset.id);
+          await renderVersionsPanel();
+        }
+      });
+    });
+  };
+
+  container.querySelector('#btn-show-versions')?.addEventListener('click', async () => {
+    const panel = container.querySelector('#versions-panel');
+    if (panel.innerHTML) { panel.innerHTML = ''; return; }
+    await renderVersionsPanel();
   });
 
   container.querySelector('#btn-goto-podcast')?.addEventListener('click', () => app.switchTab('podcast'));
   container.querySelector('#btn-goto-social')?.addEventListener('click', () => app.switchTab('social'));
+
+  bindMdArchiveEvents(container, detail?.exports || [], currentIdea, state, app);
 }
 
 function renderReview(review) {

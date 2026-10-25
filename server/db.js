@@ -137,6 +137,18 @@ async function initDatabase() {
       notes TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS export_archives (
+      id TEXT PRIMARY KEY,
+      idea_id TEXT,
+      title TEXT,
+      file_name TEXT,
+      saved_path TEXT,
+      markdown_content TEXT,
+      note TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   // Migrations for databases created by earlier versions

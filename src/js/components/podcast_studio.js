@@ -1,10 +1,11 @@
-import { esc, renderMarkdown } from '../utils.js';
+import { esc, renderMarkdown, renderMdArchiveSection, bindMdArchiveEvents } from '../utils.js';
 
 export function renderPodcastStudio(container, state, app) {
   const detail = state.currentDetail;
   const currentIdea = detail?.idea || null;
   const master = detail?.master || null;
   const podcast = detail?.podcast || null;
+  const editingPod = !!state.ui.editingPodcast;
 
   if (!currentIdea || !master?.master_article || !master.is_approved) {
     container.innerHTML = `
@@ -22,14 +23,20 @@ export function renderPodcastStudio(container, state, app) {
 
   container.innerHTML = `
     <div class="main-panel" style="max-width: 1100px; margin: 0 auto;">
-      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; gap: 12px;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; gap: 12px; flex-wrap: wrap;">
         <div>
           <h2>🎙️ 播客錄音室</h2>
           <div style="font-size: 13.5px; color: var(--text-muted); margin-top: 4px;">${esc(currentIdea.title)} · 重點提綱 / 逐字講稿 / Show Notes / NotebookLM</div>
         </div>
-        <div style="display: flex; gap: 8px;">
-          <button id="btn-export-podcast-pkg" class="btn btn-export btn-sm" ${!podcast ? 'disabled' : ''} title="一鍵打包下載整合 Markdown">📦 匯出成果</button>
-          <button id="btn-generate-podcast" class="btn btn-primary" ${state.isProcessing ? 'disabled' : ''} style="white-space: nowrap;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          ${podcast ? `
+            <button id="btn-edit-podcast" class="btn btn-outline btn-sm">${editingPod ? '取消修改' : '✏️ 修改播客內容'}</button>
+            <button id="btn-delete-podcast" class="btn btn-outline btn-sm" style="color: #DC2626;">🗑️ 刪除</button>
+          ` : `
+            <button id="btn-manual-podcast" class="btn btn-outline btn-sm">➕ 手動新增播客稿</button>
+          `}
+          <button id="btn-export-podcast-pkg" class="btn btn-export btn-sm" title="一鍵打包下載整合 Markdown 並存入紀錄">📦 匯出 .md 存檔</button>
+          <button id="btn-generate-podcast" class="btn btn-primary btn-sm" ${state.isProcessing ? 'disabled' : ''} style="white-space: nowrap;">
             ${state.isProcessing ? '⏳ 編排中...' : (podcast ? '🔄 重新生成' : '✨ 生成播客工具包')}
           </button>
         </div>
@@ -37,12 +44,54 @@ export function renderPodcastStudio(container, state, app) {
 
       ${podcast?.is_stale ? `<div class="source-banner cite-warn" style="margin-bottom: 14px;">⚠️ 這份播客內容是在母文章修改之前產生的，建議重新生成。</div>` : ''}
 
-      ${!podcast ? `
+      ${editingPod ? `
+        <div class="info-card" style="margin-bottom: 20px; border: 2px solid var(--primary);">
+          <div class="info-card-header"><span>✏️ 新增 / 修改播客內容</span></div>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px;">
+            <div>
+              <label class="form-label">🔥 吸睛型標題</label>
+              <input type="text" id="edit-pod-t1" class="form-input" value="${esc(podcast?.titles?.catchy_title || '')}">
+            </div>
+            <div>
+              <label class="form-label">🌿 反思型標題</label>
+              <input type="text" id="edit-pod-t2" class="form-input" value="${esc(podcast?.titles?.reflective_title || '')}">
+            </div>
+            <div>
+              <label class="form-label">📚 知識型標題</label>
+              <input type="text" id="edit-pod-t3" class="form-input" value="${esc(podcast?.titles?.academic_title || '')}">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">⚡ 開場 30 秒 Hook</label>
+            <textarea id="edit-pod-hook" class="form-textarea" style="min-height: 60px;">${esc(podcast?.hook || '')}</textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">📖 逐字講稿 (Markdown)</label>
+            <textarea id="edit-pod-script" class="form-textarea" style="min-height: 200px;">${esc(podcast?.full_script || '')}</textarea>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;" class="form-group">
+            <div>
+              <label class="form-label">📝 Show Notes 單集摘要</label>
+              <textarea id="edit-pod-summary" class="form-textarea" style="min-height: 100px;">${esc(podcast?.show_notes?.summary || '')}</textarea>
+            </div>
+            <div>
+              <label class="form-label">✨ NotebookLM 筆記 (Markdown)</label>
+              <textarea id="edit-pod-notebook" class="form-textarea" style="min-height: 100px;">${esc(podcast?.notebooklm_markdown || '')}</textarea>
+            </div>
+          </div>
+          <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px;">
+            <button id="btn-cancel-pod-edit" class="btn btn-outline btn-sm">取消</button>
+            <button id="btn-save-pod-edit" class="btn btn-primary btn-sm">💾 確定儲存修改</button>
+          </div>
+        </div>
+      ` : ''}
+
+      ${!podcast && !editingPod ? `
         <div style="text-align: center; padding: 80px 20px; border: 2px dashed var(--border); border-radius: 10px;">
           <p style="font-size: 15px; font-weight: 600; color: var(--primary);">尚未生成本集播客內容</p>
           <p style="font-size: 13px; color: var(--text-muted); margin-top: 6px;">三款標題 · 開場 Hook · 重點提綱 · 逐字講稿 · Show Notes · NotebookLM 筆記</p>
         </div>
-      ` : `
+      ` : (podcast ? `
         <div class="podcast-titles-grid">
           <div class="title-card"><div class="title-card-type">🔥 吸睛型</div><div class="title-card-text">${esc(podcast.titles?.catchy_title)}</div></div>
           <div class="title-card"><div class="title-card-type">🌿 反思型</div><div class="title-card-text">${esc(podcast.titles?.reflective_title)}</div></div>
@@ -106,7 +155,9 @@ export function renderPodcastStudio(container, state, app) {
             ${renderMarkdown(podcast.notebooklm_markdown)}
           </div>
         ` : ''}
-      `}
+      ` : '')}
+
+      ${renderMdArchiveSection(detail?.exports || [], currentIdea, state)}
     </div>
   `;
 
@@ -117,7 +168,42 @@ export function renderPodcastStudio(container, state, app) {
     });
   });
 
-  container.querySelector('#btn-export-podcast-pkg')?.addEventListener('click', () => app.exportIdeaPackage(currentIdea.id));
+  container.querySelector('#btn-edit-podcast')?.addEventListener('click', () => {
+    state.ui.editingPodcast = !state.ui.editingPodcast;
+    app.render();
+  });
+  container.querySelector('#btn-manual-podcast')?.addEventListener('click', () => {
+    state.ui.editingPodcast = true;
+    app.render();
+  });
+  container.querySelector('#btn-cancel-pod-edit')?.addEventListener('click', () => {
+    state.ui.editingPodcast = false;
+    app.render();
+  });
+  container.querySelector('#btn-save-pod-edit')?.addEventListener('click', async () => {
+    await app.savePodcastEdit(currentIdea.id, {
+      titles: {
+        catchy_title: container.querySelector('#edit-pod-t1')?.value.trim() || '',
+        reflective_title: container.querySelector('#edit-pod-t2')?.value.trim() || '',
+        academic_title: container.querySelector('#edit-pod-t3')?.value.trim() || ''
+      },
+      hook: container.querySelector('#edit-pod-hook')?.value || '',
+      talking_points: podcast?.talking_points || [],
+      full_script: container.querySelector('#edit-pod-script')?.value || '',
+      show_notes: {
+        ...(podcast?.show_notes || {}),
+        summary: container.querySelector('#edit-pod-summary')?.value || ''
+      },
+      notebooklm_markdown: container.querySelector('#edit-pod-notebook')?.value || ''
+    });
+  });
+  container.querySelector('#btn-delete-podcast')?.addEventListener('click', async () => {
+    if (confirm('確定要刪除此集播客內容嗎？')) {
+      await app.deletePodcast(currentIdea.id);
+    }
+  });
+
+  container.querySelector('#btn-export-podcast-pkg')?.addEventListener('click', () => app.exportIdeaPackage(currentIdea.id, { note: '含 Podcast 工具包' }));
   container.querySelector('#btn-generate-podcast')?.addEventListener('click', () => app.generatePodcast(currentIdea.id));
 
   const copy = (sel, text, msg) => container.querySelector(sel)?.addEventListener('click', () => {
@@ -137,4 +223,6 @@ export function renderPodcastStudio(container, state, app) {
     ].join('\n');
     copy('#btn-copy-shownotes', text, '已複製 Show Notes');
   }
+
+  bindMdArchiveEvents(container, detail?.exports || [], currentIdea, state, app);
 }
