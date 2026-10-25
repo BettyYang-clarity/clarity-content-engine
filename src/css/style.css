@@ -559,7 +559,8 @@ h3 {
 .carousel-slide-card {
   min-width: 240px;
   max-width: 240px;
-  height: 320px;
+  min-height: 220px;
+  height: auto;
   background: #FFFFFF;
   border: 2px solid var(--border);
   border-radius: 14px;

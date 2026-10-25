@@ -118,39 +118,31 @@ export function renderSocialMultiplier(container, state, app) {
 
         ${sub === 'ig' && ig ? `
           ${ig.visual_theme ? `<div class="source-banner cite-ok" style="margin-bottom: 12px;">🎨 <strong>本篇輪播視覺主題：</strong>${esc(ig.visual_theme)}</div>` : ''}
-          <div class="info-card" style="margin-bottom: 16px; background: #FAF9F6; border-left: 4px solid var(--primary);">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap;">
-              <div>
-                <strong style="font-size: 13.5px; color: var(--primary);">🔗 讓前後圖片風格 100% 統一的用法（同一個 Gemini 對話框兩步法）</strong>
-                <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
-                  先點「① 複製封面圖指令」貼到 Gemini 生出第 1 張圖；接著<strong>在同一個 Gemini 對話框</strong>點「② 複製內頁延續指令」貼上，Gemini 就會沿用同一個房間、光線與色調拍出第 2 張內頁共用底圖！
-                </p>
-              </div>
+          <div class="info-card" style="margin-bottom: 16px; padding: 12px 16px; background: #FAF9F6; border-left: 4px solid var(--primary);">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+              <span style="font-size: 13px; font-weight: 600; color: var(--primary);">🎨 Gemini 生圖指令（貼在同一對話框依序生成，風格一致）</span>
               <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                 <button id="btn-copy-cover-prompt" class="btn btn-primary btn-sm" style="white-space: nowrap;">① 複製「封面圖」指令</button>
-                <button id="btn-copy-inner-bg" class="btn btn-accent btn-sm" style="white-space: nowrap;">② 複製「內頁共用圖」延續指令</button>
+                <button id="btn-copy-inner-bg" class="btn btn-accent btn-sm" style="white-space: nowrap;">② 複製「內頁共用圖」指令</button>
+                <button id="btn-copy-outro-prompt" class="btn btn-outline btn-sm" style="white-space: nowrap;">③ 複製「封底圖」指令</button>
               </div>
             </div>
           </div>
           <div class="carousel-deck">
             ${(ig.slides || []).map((s, i) => {
               const isCover = i === 0;
-              const rawPrompt = (s.visual_prompt && !s.visual_prompt.includes('同上')) ? s.visual_prompt : (ig.inner_page_bg_prompt || s.visual_prompt);
-              const displayPrompt = toGeminiImagePrompt(rawPrompt, { isContinuation: !isCover, styleAnchor: ig.style_anchor });
+              const isOutro = i === (ig.slides.length - 1) && ig.slides.length > 1;
               return `
               <div class="carousel-slide-card">
                 <div>
-                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                     <span class="slide-num-badge">P.${esc(s.slide_num)}</span>
-                    <span style="font-size: 11px; color: var(--text-muted);">${isCover ? '🌟 鏡位 1：視覺封面' : (i === (ig.slides.length - 1) ? '🎯 鏡位 3：封底收尾' : '📝 鏡位 2：文字內頁（共用底圖）')}</span>
+                    <span style="font-size: 11px; color: var(--text-muted);">${isCover ? '🌟 封面' : (isOutro ? '🎯 封底' : '📝 內頁')}</span>
                   </div>
                   <div class="slide-title">${esc(s.title)}</div>
                   <div class="slide-body">${esc(s.subtitle)}</div>
                 </div>
-                <div>
-                  <div class="slide-prompt-box"><strong>🎨 Gemini 生圖指令 (4:5)：</strong><br>${esc(displayPrompt)}</div>
-                  <button class="btn btn-outline btn-sm btn-block btn-copy-slide" data-i="${i}" style="margin-top: 6px;">📋 複製此頁生圖指令</button>
-                </div>
+                <button class="btn btn-outline btn-sm btn-block btn-copy-slide-text" data-i="${i}" style="margin-top: 10px;">📋 複製此頁文字</button>
               </div>
             `;
             }).join('')}
@@ -225,13 +217,19 @@ export function renderSocialMultiplier(container, state, app) {
   });
   container.querySelector('#btn-copy-inner-bg')?.addEventListener('click', () => {
     const innerRaw = ig?.inner_page_bg_prompt || ig?.slides?.[1]?.visual_prompt || 'clean minimalist textured background';
-    copyText(toGeminiImagePrompt(innerRaw, { isContinuation: true, styleAnchor: ig?.style_anchor }), '已複製「② 內頁共用圖（延續上一張風格）」指令');
+    copyText(toGeminiImagePrompt(innerRaw, { isContinuation: true, styleAnchor: ig?.style_anchor }), '已複製「② 內頁共用圖」生圖指令');
   });
-  container.querySelectorAll('.btn-copy-slide').forEach(b => b.addEventListener('click', () => {
+  container.querySelector('#btn-copy-outro-prompt')?.addEventListener('click', () => {
+    const lastSlide = ig?.slides?.[ig.slides.length - 1];
+    const outroRaw = (lastSlide?.visual_prompt && !lastSlide.visual_prompt.includes('同上'))
+      ? lastSlide.visual_prompt
+      : '鏡頭稍微拉遠，呈現同一個房間角落的溫暖靜謐畫面，微光灑在木桌與亞麻單椅邊緣，上方與中央保留大片乾淨柔和的米色牆面留白';
+    copyText(toGeminiImagePrompt(outroRaw, { isContinuation: true, styleAnchor: ig?.style_anchor }), '已複製「③ 封底圖」生圖指令');
+  });
+  container.querySelectorAll('.btn-copy-slide-text').forEach(b => b.addEventListener('click', () => {
     const idx = Number(b.dataset.i);
     const s = ig.slides[idx];
-    const rawPrompt = (s.visual_prompt && !s.visual_prompt.includes('同上')) ? s.visual_prompt : (ig.inner_page_bg_prompt || s.visual_prompt);
-    copyText(toGeminiImagePrompt(rawPrompt, { isContinuation: idx > 0, styleAnchor: ig?.style_anchor }), '已複製生圖指令');
+    copyText(`${s.title || ''}\n${s.subtitle || ''}`.trim(), `已複製 P.${s.slide_num} 文字`);
   }));
   container.querySelectorAll('.btn-copy-thread').forEach(b => b.addEventListener('click', () => copyText(threads[b.dataset.i].text, '已複製 Threads 貼文')));
   container.querySelector('#btn-copy-ig-caption')?.addEventListener('click', () => copyText(ig.caption, '已複製 Caption'));
