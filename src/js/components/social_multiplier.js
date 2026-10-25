@@ -62,17 +62,21 @@ export function renderSocialMultiplier(container, state, app) {
         </div>
 
         ${sub === 'ig' && ig ? `
+          ${ig.visual_theme ? `<div class="source-banner cite-ok" style="margin-bottom: 14px;">🎨 <strong>輪播視覺主題：</strong>${esc(ig.visual_theme)}（尺寸規格：直式 4:5 1080x1350）</div>` : ''}
           <div class="carousel-deck">
             ${(ig.slides || []).map((s, i) => `
               <div class="carousel-slide-card">
                 <div>
-                  <span class="slide-num-badge">P.${esc(s.slide_num)}</span>
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <span class="slide-num-badge">P.${esc(s.slide_num)}</span>
+                    <span style="font-size: 11px; color: var(--text-muted);">${s.type === 'cover' ? '🌟 視覺封面' : (i === (ig.slides.length - 1) ? '🎯 封底收尾' : '📝 文字內頁')}</span>
+                  </div>
                   <div class="slide-title">${esc(s.title)}</div>
                   <div class="slide-body">${esc(s.subtitle)}</div>
                 </div>
                 <div>
-                  <div class="slide-prompt-box"><strong>🎨 視覺提示：</strong><br>${esc(s.visual_prompt)}</div>
-                  <button class="btn btn-outline btn-sm btn-block btn-copy-slide" data-i="${i}" style="margin-top: 6px;">📋 複製提示詞</button>
+                  <div class="slide-prompt-box"><strong>🎨 生圖提示 (Gemini / Imagen 4:5)：</strong><br>${esc(s.visual_prompt)}</div>
+                  <button class="btn btn-outline btn-sm btn-block btn-copy-slide" data-i="${i}" style="margin-top: 6px;">📋 複製生圖 Prompt</button>
                 </div>
               </div>
             `).join('')}

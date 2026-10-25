@@ -8,7 +8,9 @@ const SOURCE_RULES = `
 - 只能使用母文章中出現的故事、例子與研究；不可新增作者的個人經歷、他人案例或文獻。
 - 母文章若有引用文獻，提到時保持與母文章相同的說法，不可誇大成「研究證明」。
 - 不使用診斷性語言，維持可能性語氣。
-- 第一人稱「我」的分享口吻；不自稱教練或老師，不說教。
+- 嚴禁以「Hi 我是 Betty」等開場自我介紹破題，直接以吸睛情境或心聲切入。
+- 克制「我」的出現頻率：在敘述客觀情境與觀點時自然省略主詞，避免每句都以「我」開頭。
+- 不自稱教練或老師，不說教。
 - 結尾邀請只能是留言分享、收藏轉發或追蹤；不可提及任何教練、諮詢、諮商或付費服務。`;
 
 function sharedContext(idea, researchPack, masterArticle) {
@@ -39,15 +41,41 @@ ${ctx}
 ${SOURCE_RULES}
 
 格式要求：
-- Instagram：7–9 張輪播。第 1 張是封面（強 Hook），最後一張是溫和的行動邀請。每張 title 不超過 18 字、subtitle 不超過 45 字。caption 不超過 2,000 字，結尾附 8–12 個 hashtag。
-- visual_prompt：給 Canva / Imagen 的畫面描述，風格為簡約、大地色、鼠尾草綠、留白多、沉靜插畫。
+- Instagram 輪播（7–9 張，高質感規模化排版原則）：
+  * 尺寸標準：一律為 IG 直式最佳比例 4:5 (1080x1350 px)。
+  * 風格一致性：整組輪播必須維持同一套視覺基調（極簡大地色、鼠尾草綠與暖米白、細膩紙質微質理、留白呼吸感）。
+  * 規模化頁面分工：
+    - Slide 1（封面）：吸睛概念視覺，留白供文字排版，標註尺寸。
+    - Slide 2 ~ N-1（中間內頁）：【以文字閱讀為主，背景極簡且整組一致】。生圖提示詞為乾淨統一的質理背景，無多餘具體物體，確保文字清晰易讀、易於在 Canva 批次套版。
+    - Slide Last（封底）：溫和行動邀請或極簡品牌留白頁。
+  * 每張 title 不超過 18 字、subtitle/內文不超過 50 字。
+  * visual_prompt 規格：請產生可直接貼進 Gemini / Imagen / Midjourney 的英文生圖 Prompt，開頭必須包含尺寸與風格：
+    - 封面例："Editorial aesthetic illustration, [主題氛圍], sage green and warm cream palette, minimalist, ample negative space for text layout, aspect ratio 4:5, 1080x1350, 4k"
+    - 內頁例："Clean minimalist textured background, subtle warm beige paper grain, elegant soft diffuse lighting, no objects, no text, text-centric layout, aspect ratio 4:5, 1080x1350"
+  * caption：不超過 1,800 字，段落呼吸感佳，結尾附 8–12 個精準繁體 hashtag。
 - Facebook：500–800 字，以讀者熟悉的情境或母文章中的例子切入，結尾拋出開放式提問。
 - Threads：3 則，每則不超過 450 字（平台上限 500 字）。
 
 請回傳 JSON：
 {
   "instagram": {
-    "slides": [{"slide_num": 1, "title": "", "subtitle": "", "visual_prompt": ""}],
+    "visual_theme": "整組風格色系統一名稱與說明（例：Sage Green & Warm Cream Minimalist）",
+    "slides": [
+      {
+        "slide_num": 1,
+        "type": "cover",
+        "title": "封面大標題",
+        "subtitle": "副標題或 Hook",
+        "visual_prompt": "給 Gemini/Imagen 的英文生圖 Prompt（含 4:5 1080x1350 規格）"
+      },
+      {
+        "slide_num": 2,
+        "type": "content",
+        "title": "頁面小標題",
+        "subtitle": "核心洞見或論述文字",
+        "visual_prompt": "一致的極簡背景英文生圖 Prompt（含 4:5 1080x1350 規格）"
+      }
+    ],
     "caption": "",
     "alt_text": "給無障礙閱讀的整組圖片說明"
   },
