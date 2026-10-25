@@ -42,16 +42,19 @@ ${SOURCE_RULES}
 
 格式要求：
 - Instagram 輪播（7–9 張，高質感規模化排版原則）：
-  * 尺寸標準：一律為 IG 直式最佳比例 4:5 (1080x1350 px)。
-  * 風格一致性：整組輪播必須維持同一套視覺基調（極簡大地色、鼠尾草綠與暖米白、細膩紙質微質理、留白呼吸感）。
-  * 規模化頁面分工：
-    - Slide 1（封面）：吸睛概念視覺，留白供文字排版，標註尺寸。
-    - Slide 2 ~ N-1（中間內頁）：【以文字閱讀為主，背景極簡且整組一致】。生圖提示詞為乾淨統一的質理背景，無多餘具體物體，確保文字清晰易讀、易於在 Canva 批次套版。
-    - Slide Last（封底）：溫和行動邀請或極簡品牌留白頁。
+  * 主題隨文調整、風格極簡一致：先根據本篇母文的主題與情緒，決定一組專屬的「極簡視覺意象＋柔和低飽和色調」（例如講決策與時間：晨光下的溫潤木桌與光影；講關係與界線：透光亞麻窗簾與柔和陰影；講思緒整理：靜謐水面或留白建築光影），不要每篇都千篇一律。
+  * 規模化分工（整組輪播只需要在 Gemini 生 2～3 張底圖即可套用全部頁面）：
+    - Slide 1（封面）：依本篇主題意象設計的主視覺，畫面下方或一側有單一簡潔主體，上方預留 60% 以上乾淨柔和的留白區（方便後製壓上標題）。
+    - Slide 2 ~ N-1（中間內頁）：以文字閱讀為主。共用同一張「與封面同色系、同光影氛圍的極簡柔焦背景」（例如柔和窗光落在同色系微肌理牆面或紙面上），畫面乾淨無雜物，讓整組內頁只需生成 1 張背景就能重複套版。
+    - Slide Last（封底）：與封面呼應的靜謐收尾畫面（例如拉遠鏡頭或更柔和的光影留白），預留中央空間放結尾語。
   * 每張 title 不超過 18 字、subtitle/內文不超過 50 字。
-  * visual_prompt 規格：請產生可直接貼進 Gemini / Imagen / Midjourney 的英文生圖 Prompt，開頭必須包含尺寸與風格：
-    - 封面例："Editorial aesthetic illustration, [主題氛圍], sage green and warm cream palette, minimalist, ample negative space for text layout, aspect ratio 4:5, 1080x1350, 4k"
-    - 內頁例："Clean minimalist textured background, subtle warm beige paper grain, elegant soft diffuse lighting, no objects, no text, text-centric layout, aspect ratio 4:5, 1080x1350"
+  * 【關鍵】Gemini 專用生圖指令（visual_prompt）寫法規則：
+    1. Gemini (Imagen 3) 需要「完整、自然的描述句」，不吃 Midjourney 式的碎詞堆砌。
+    2. 開頭固定寫：「請生成一張直式 4:5 的圖片：」（或英文 "Generate a vertical 4:5 image: "），讓使用者複製貼到 Gemini 對話框就能直接觸發生圖。
+    3. 禁止寫 `1080x1350`、`4k`、`no text`、`no objects` 等參數或否定詞（否定詞反而會讓 Gemini 生出文字或拒絕生成；改用正面描述「畫面完全只有純粹的光影與背景材質，預留大片乾淨留白」）。
+    4. 質感關鍵：描述具體的「自然光線（柔和晨光、漫射窗光）、材質觸感（溫潤木紋、亞麻、細緻霧面紙感、淺景深）、Kinfolk 雜誌般的靜謐生活美學」。
+    5. 封面範例：「請生成一張直式 4:5 的圖片：Kinfolk 雜誌風格的極簡靜物攝影。畫面下方是一張溫潤淺橡木桌面，放著一只盛著清澈熱茶的白瓷杯，柔和的早晨斜射窗光在桌面拉出長長的淡影。畫面上方三分之二是乾淨溫暖的米灰牆面，呈現柔和淺景深，預留充足的留白空間，整體色調低飽和、沉靜而有呼吸感。」
+    6. 內頁共用背景範例（Slide 2 ~ N-1 請共用同一段 prompt）：「請生成一張直式 4:5 的圖片：極簡主義的柔和光影背景。溫暖的米灰色微肌理牆面上，映著午後透過窗紗灑落的漫射自然光與淡淡光影漸層，畫面純粹乾淨，沒有任何物品，色調柔和沉靜，與封面光影一致，適合直接作為文字排版的底圖。」
   * caption：不超過 1,800 字，段落呼吸感佳，結尾附 8–12 個精準繁體 hashtag。
 - Facebook：500–800 字，以讀者熟悉的情境或母文章中的例子切入，結尾拋出開放式提問。
 - Threads：3 則，每則不超過 450 字（平台上限 500 字）。
@@ -59,21 +62,22 @@ ${SOURCE_RULES}
 請回傳 JSON：
 {
   "instagram": {
-    "visual_theme": "整組風格色系統一名稱與說明（例：Sage Green & Warm Cream Minimalist）",
+    "visual_theme": "本篇專屬的極簡視覺意象與色調說明（隨母文主題調整）",
+    "inner_page_bg_prompt": "請生成一張直式 4:5 的圖片：...（供第 2 頁到倒數第 2 頁共用的極簡同色系光影底圖指令，只需在 Gemini 生一次即可套用全部內頁）",
     "slides": [
       {
         "slide_num": 1,
         "type": "cover",
         "title": "封面大標題",
         "subtitle": "副標題或 Hook",
-        "visual_prompt": "給 Gemini/Imagen 的英文生圖 Prompt（含 4:5 1080x1350 規格）"
+        "visual_prompt": "請生成一張直式 4:5 的圖片：...（依母文主題量身打造的封面極簡意象，預留大片留白）"
       },
       {
         "slide_num": 2,
         "type": "content",
         "title": "頁面小標題",
         "subtitle": "核心洞見或論述文字",
-        "visual_prompt": "一致的極簡背景英文生圖 Prompt（含 4:5 1080x1350 規格）"
+        "visual_prompt": "（同上方內頁共用底圖指令）"
       }
     ],
     "caption": "",

@@ -62,21 +62,30 @@ export function renderSocialMultiplier(container, state, app) {
         </div>
 
         ${sub === 'ig' && ig ? `
-          ${ig.visual_theme ? `<div class="source-banner cite-ok" style="margin-bottom: 14px;">🎨 <strong>輪播視覺主題：</strong>${esc(ig.visual_theme)}（尺寸規格：直式 4:5 1080x1350）</div>` : ''}
+          ${ig.visual_theme ? `<div class="source-banner cite-ok" style="margin-bottom: 12px;">🎨 <strong>本篇輪播視覺主題：</strong>${esc(ig.visual_theme)}</div>` : ''}
+          ${ig.inner_page_bg_prompt ? `
+            <div class="info-card" style="margin-bottom: 16px; background: #FAF9F6; border-left: 4px solid var(--primary);">
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px;">
+                <strong style="font-size: 13px; color: var(--primary);">🖼️ 內頁共用極簡底圖指令（P2 ～ 倒數第 2 頁共用，在 Gemini 生 1 張即可套用全部內頁）</strong>
+                <button id="btn-copy-inner-bg" class="btn btn-primary btn-sm" style="white-space: nowrap;">📋 複製內頁底圖指令</button>
+              </div>
+              <div style="font-size: 12.5px; color: #374151; line-height: 1.55;">${esc(ig.inner_page_bg_prompt)}</div>
+            </div>
+          ` : ''}
           <div class="carousel-deck">
             ${(ig.slides || []).map((s, i) => `
               <div class="carousel-slide-card">
                 <div>
                   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                     <span class="slide-num-badge">P.${esc(s.slide_num)}</span>
-                    <span style="font-size: 11px; color: var(--text-muted);">${s.type === 'cover' ? '🌟 視覺封面' : (i === (ig.slides.length - 1) ? '🎯 封底收尾' : '📝 文字內頁')}</span>
+                    <span style="font-size: 11px; color: var(--text-muted);">${i === 0 ? '🌟 視覺封面' : (i === (ig.slides.length - 1) ? '🎯 封底收尾' : '📝 文字內頁')}</span>
                   </div>
                   <div class="slide-title">${esc(s.title)}</div>
                   <div class="slide-body">${esc(s.subtitle)}</div>
                 </div>
                 <div>
-                  <div class="slide-prompt-box"><strong>🎨 生圖提示 (Gemini / Imagen 4:5)：</strong><br>${esc(s.visual_prompt)}</div>
-                  <button class="btn btn-outline btn-sm btn-block btn-copy-slide" data-i="${i}" style="margin-top: 6px;">📋 複製生圖 Prompt</button>
+                  <div class="slide-prompt-box"><strong>🎨 Gemini 生圖指令 (4:5)：</strong><br>${esc((s.visual_prompt && !s.visual_prompt.includes('同上')) ? s.visual_prompt : (ig.inner_page_bg_prompt || s.visual_prompt))}</div>
+                  <button class="btn btn-outline btn-sm btn-block btn-copy-slide" data-i="${i}" style="margin-top: 6px;">📋 複製此頁生圖指令</button>
                 </div>
               </div>
             `).join('')}
@@ -145,7 +154,12 @@ export function renderSocialMultiplier(container, state, app) {
   container.querySelector('#btn-generate-multiplier')?.addEventListener('click', () => app.generateMultiplier(currentIdea.id));
 
   const copyText = (text, msg) => { navigator.clipboard.writeText(text || ''); app.showToast(msg); };
-  container.querySelectorAll('.btn-copy-slide').forEach(b => b.addEventListener('click', () => copyText(ig.slides[b.dataset.i].visual_prompt, '已複製視覺提示詞')));
+  container.querySelector('#btn-copy-inner-bg')?.addEventListener('click', () => copyText(ig.inner_page_bg_prompt, '已複製內頁共用底圖指令'));
+  container.querySelectorAll('.btn-copy-slide').forEach(b => b.addEventListener('click', () => {
+    const s = ig.slides[b.dataset.i];
+    const prompt = (s.visual_prompt && !s.visual_prompt.includes('同上')) ? s.visual_prompt : (ig.inner_page_bg_prompt || s.visual_prompt);
+    copyText(prompt, '已複製生圖指令');
+  }));
   container.querySelectorAll('.btn-copy-thread').forEach(b => b.addEventListener('click', () => copyText(threads[b.dataset.i].text, '已複製 Threads 貼文')));
   container.querySelector('#btn-copy-ig-caption')?.addEventListener('click', () => copyText(ig.caption, '已複製 Caption'));
   container.querySelector('#btn-copy-fb')?.addEventListener('click', () => copyText(fb.post_text, '已複製 Facebook 貼文'));
