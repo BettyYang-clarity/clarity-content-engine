@@ -41,19 +41,18 @@ ${ctx}
 ${SOURCE_RULES}
 
 格式要求：
-- Instagram 輪播（7–9 張，高質感規模化排版原則）：
-  * 主題隨文調整、風格極簡一致：先根據本篇母文的主題與情緒，決定一組專屬的「極簡視覺意象＋柔和低飽和色調」（例如講決策與時間：晨光下的溫潤木桌與光影；講關係與界線：透光亞麻窗簾與柔和陰影；講思緒整理：靜謐水面或留白建築光影），不要每篇都千篇一律。
-  * 規模化分工（整組輪播只需要在 Gemini 生 2～3 張圖即可套用全部頁面）：
-    - Slide 1（封面）：依本篇主題意象設計的極簡生活美學攝影或溫潤插畫，畫面下方或角落有明確具象主體，上方預留 60% 以上柔和淺景深空間。
-    - Slide 2 ~ N-1（中間內頁）：共用同一張「與封面同色系、帶有具體自然光影或邊角微元素的柔焦靜謐畫面」（例如：陽光穿過百葉窗或樹葉在微肌理灰泥牆上投下的柔和光影、或畫面最下緣有一小截溫潤木桌與一抹綠意而上方呈現奶油色柔焦散景）。【注意】不可寫成「空白背景」，必須給 Gemini 具體可畫的「光影、窗影、水彩渲染或邊角微景物」，才不會觸發 Gemini 空白圖過濾器！
-    - Slide Last（封底）：與封面呼應的靜謐收尾畫面（例如拉遠鏡頭的窗邊光影與角落植栽）。
+- Instagram 輪播（7–9 張，【前後風格 100% 統一】的規模化排版原則）：
+  * 為什麼分開生圖會風格不一致？因為沒鎖定「同一個空間、同一種媒材鏡頭、同一組色票」。因此請嚴格採用【同一空間、三種鏡位（Same Room, Three Camera Angles）】原則：
+    1. 先根據本篇母文主題，設計一個「單一固定場景」與一段不可變動的「風格鎖定句（style_anchor）」，固定媒材（一律使用 Kinfolk 雜誌靜物室內攝影，50mm f/1.8 淺景深定焦鏡、Kodak Portra 400 柔和暖調底片感）、固定三色色票、固定光線方向。嚴禁一張是插畫、一張是攝影！
+    2. 整組輪播只需要在 Gemini 同一個對話框裡依序生 3 張圖（封面、內頁共用圖、封底），它們都在「同一個空間、同一個時間、同一道光線下」拍攝，只是鏡頭角度不同：
+       - 【鏡位 1：封面（Slide 1）】拍這個空間裡桌上的核心主體（畫面下方 1/3 是桌面與主題靜物，上方 2/3 是同一面牆與柔和窗光，方便壓大標題）。
+       - 【鏡位 2：內頁共用圖（Slide 2 ~ N-1 共用 1 張）】在「同一個空間」，將鏡頭稍微往上或往旁平移，對焦在同一面牆上的柔和窗紗樹影，畫面最下緣只露出一小截同一張桌子與角落一枝失焦植物（給 Gemini 具體主體才不會拒絕生成，同時畫面 80% 是乾淨淺景深牆面可壓內文）。
+       - 【鏡位 3：封底（最後 1 張）】在「同一個空間」鏡頭稍微拉遠的靜謐角落（同一面牆、同一道光、同一個色調），預留大片柔和空間放結尾邀請。
   * 每張 title 不超過 18 字、subtitle/內文不超過 50 字。
   * 【關鍵】Gemini 專用生圖指令（visual_prompt）寫法規則：
-    1. 開頭固定寫：「請幫我生成一張直式 4:5 的圖片：」。
-    2. 【絕對禁止】出現任何否定詞或空白詞：不可寫「沒有任何物品」、「無雜物」、「空白」、「背景底圖」、「不要文字」、「no objects」、「no text」、「blank」、「textured background」。這些詞會觸發 Gemini 的系統限制導致拒絕生成。
-    3. 【必須包含具體主體】：即使是內頁底圖，也必須描述一個具體但低干擾的視覺主體（例如：「柔和的午後陽光透過亞麻窗紗，在溫暖米白色的灰泥牆面上投下淡淡的植物樹影，畫面右下角有一小枝失焦的尤加利葉，整體呈現極度柔和的淺景深與靜謐光影」），讓畫面既有具體主體能順利生成，又保有大片乾淨區域可放文字。
-    4. 封面範例：「請幫我生成一張直式 4:5 的圖片：Kinfolk 雜誌風格的靜物攝影。畫面下方是一張溫潤的淺橡木桌面，放著一只盛著熱茶的霧面白瓷杯與一本闔上的亞麻布面筆記本，柔和的早晨斜射陽光透過窗戶在桌面拉出長長的溫暖光影，畫面上方呈現柔和的奶油色淺景深牆面，色調低飽和、沉靜而有呼吸感。」
-    5. 內頁共用圖範例（Slide 2 ~ N-1 共用）：「請幫我生成一張直式 4:5 的圖片：Kinfolk 雜誌風格的極簡光影攝影。溫暖的米白色灰泥牆面上，映著午後陽光穿過窗邊植物所投下的柔和自然樹影與淡淡光暈，畫面最下緣隱約可見淺橡木窗台的一角，整體呈現柔和的淺景深散景與溫潤色調，氛圍寧靜清透。」
+    - 絕對禁止出現任何否定詞或空白詞（不可寫「沒有任何物品」、「無雜物」、「空白」、「背景底圖」、「不要文字」、「no objects」、「no text」、「blank」）。
+    - 封面、內頁共用圖、封底的指令中，都必須完整寫出相同的牆面材質、桌面材質、光線角度與攝影風格（style_anchor），不可省略！
+    - 內頁共用圖與封底開頭請寫：「請幫我生成一張直式 4:5 的圖片，延續上一張圖完全相同的房間場景、色調、光線與攝影風格：...」（讓使用者在同一個 Gemini 對話框貼上時，Gemini 會自動繼承前一張的風格）。
   * caption：不超過 1,800 字，段落呼吸感佳，結尾附 8–12 個精準繁體 hashtag。
 - Facebook：500–800 字，以讀者熟悉的情境或母文章中的例子切入，結尾拋出開放式提問。
 - Threads：3 則，每則不超過 450 字（平台上限 500 字）。
@@ -61,15 +60,16 @@ ${SOURCE_RULES}
 請回傳 JSON：
 {
   "instagram": {
-    "visual_theme": "本篇專屬的極簡視覺意象與色調說明（隨母文主題調整）",
-    "inner_page_bg_prompt": "請生成一張直式 4:5 的圖片：...（供第 2 頁到倒數第 2 頁共用的極簡同色系光影底圖指令，只需在 Gemini 生一次即可套用全部內頁）",
+    "visual_theme": "本篇固定的單一空間與視覺意象說明（例：午後陽光灑落的米白灰泥牆與淺橡木書桌）",
+    "style_anchor": "固定攝影與色調鎖定句（例：Kinfolk 雜誌室內靜物攝影風格，50mm f/1.8 淺景深鏡頭，Kodak Portra 400 柔和底片質感，低飽和暖米白、燕麥色與鼠尾草綠色調，柔和斜射自然窗光）",
+    "inner_page_bg_prompt": "請幫我生成一張直式 4:5 的圖片，延續上一張圖完全相同的房間場景、色調、光線與攝影風格：鏡頭稍微上移，畫面主體是同一面溫暖米白色灰泥牆上的柔和窗紗光影與植物疏影，畫面最下緣僅露出一小截同一張淺橡木桌面邊緣與一枝失焦的尤加利葉，上方呈現大片乾淨柔和的淺景深牆面。",
     "slides": [
       {
         "slide_num": 1,
         "type": "cover",
         "title": "封面大標題",
         "subtitle": "副標題或 Hook",
-        "visual_prompt": "請生成一張直式 4:5 的圖片：...（依母文主題量身打造的封面極簡意象，預留大片留白）"
+        "visual_prompt": "請幫我生成一張直式 4:5 的圖片：...（鏡位 1：同空間桌面主體特寫，上方 2/3 為柔和淺景深牆面）"
       },
       {
         "slide_num": 2,
@@ -122,12 +122,55 @@ ${SOURCE_RULES}
     includeLearning: true
   });
 
+  const ig = enforceCarouselStyleConsistency(shortForm?.instagram || null);
+
   return {
-    instagram: shortForm?.instagram || null,
+    instagram: ig,
     facebook: shortForm?.facebook || null,
     threads: Array.isArray(shortForm?.threads) ? shortForm.threads : [],
     blog_article: blog || null
   };
+}
+
+/**
+ * Guarantee that Cover, Inner shared image, and Closing slide share the exact
+ * same style_anchor and continuation instructions so Gemini generates a cohesive set.
+ */
+function enforceCarouselStyleConsistency(ig) {
+  if (!ig || !Array.isArray(ig.slides)) return ig;
+  const anchor = (ig.style_anchor || 'Kinfolk 雜誌室內靜物攝影風格，50mm f/1.8 淺景深定焦鏡頭，Kodak Portra 400 柔和底片質感，低飽和暖米白、燕麥色與鼠尾草綠色調，柔和斜射自然窗光').trim();
+  ig.style_anchor = anchor;
+
+  const ensureAnchor = (prompt, isContinuation) => {
+    if (!prompt) return '';
+    let p = String(prompt).trim();
+    if (isContinuation && !/延續上一張|same room|same style/i.test(p)) {
+      p = p.replace(/^(請(幫我)?生成一張直式\s*4:5\s*的圖片[：:]?\s*)/i, '');
+      p = `請幫我生成一張直式 4:5 的圖片，延續上一張圖完全相同的房間場景、牆面材質、色調、光線與攝影風格：${p}`;
+    }
+    if (!p.includes(anchor.slice(0, 10))) {
+      p = `${p.replace(/[。.]$/, '')}。【固定風格鎖定：${anchor}】`;
+    }
+    return p;
+  };
+
+  if (ig.inner_page_bg_prompt) {
+    ig.inner_page_bg_prompt = ensureAnchor(ig.inner_page_bg_prompt, true);
+  }
+
+  ig.slides = ig.slides.map((s, idx) => {
+    const isCover = idx === 0;
+    const isLast = idx === ig.slides.length - 1;
+    if (!isCover && !isLast && ig.inner_page_bg_prompt) {
+      return { ...s, visual_prompt: ig.inner_page_bg_prompt };
+    }
+    return {
+      ...s,
+      visual_prompt: ensureAnchor(s.visual_prompt, !isCover)
+    };
+  });
+
+  return ig;
 }
 
 module.exports = {

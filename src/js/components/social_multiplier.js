@@ -3,11 +3,13 @@ import { esc, renderMarkdown } from '../utils.js';
 // Platform text limits (characters)
 const LIMITS = { threads: 500, igCaption: 2200 };
 
+const DEFAULT_STYLE_ANCHOR = 'Kinfolk 雜誌室內靜物攝影風格，50mm f/1.8 淺景深定焦鏡頭，Kodak Portra 400 柔和底片質感，低飽和暖米白、燕麥色與鼠尾草綠色調，柔和斜射自然窗光';
+
 /**
  * Ensure any visual prompt (including older saved ones) starts with an explicit
- * image-generation verb and strips Midjourney-style tags that confuse Gemini chat.
+ * image-generation verb, strips Midjourney-style tags, and locks onto a unified style anchor.
  */
-function toGeminiImagePrompt(raw) {
+function toGeminiImagePrompt(raw, { isContinuation = false, styleAnchor = DEFAULT_STYLE_ANCHOR } = {}) {
   if (!raw) return '';
   let text = String(raw).trim();
   // Strip negative / technical / "blank background" phrases that trigger Gemini's empty-content filter
@@ -26,17 +28,32 @@ function toGeminiImagePrompt(raw) {
     .replace(/,\s*$/g, '')
     .trim();
 
-  // If it's a legacy "textured background" prompt with no concrete subject, enrich it with organic light/shadow elements
+  // If it's a legacy "textured background" prompt with no concrete subject, replace with same-room wall/shadow angle
   if (/clean minimalist textured background/i.test(text)) {
-    return 'Please generate a vertical 4:5 editorial photograph of a warm beige plaster wall bathed in soft morning sunlight filtering through sheer linen curtains, casting gentle organic botanical shadows, with a single out-of-focus eucalyptus stem in the bottom corner, shallow depth of field, Kinfolk magazine aesthetic.';
+    text = '鏡頭稍微上移，對焦在同一個房間的溫暖米白色灰泥牆面，午後陽光穿過亞麻窗紗在牆上投下柔和的植物樹影，畫面最下緣僅露出一小截同一張淺橡木桌面邊緣與一枝失焦的尤加利葉，上方呈現大片乾淨柔和的淺景深牆面';
   }
 
-  const hasVerb = /^(請(幫我)?生成|請畫|請製作|please\s+generate|generate\s+(an?\s+)?(vertical\s+)?(4:5\s+)?image|create\s+an?\s+image|draw\s+)/i.test(text);
-  if (!hasVerb) {
-    const isChinese = /[\u4e00-\u9fff]/.test(text);
+  const isChinese = /[\u4e00-\u9fff]/.test(text);
+  const anchor = styleAnchor || DEFAULT_STYLE_ANCHOR;
+
+  if (isContinuation && !/延續上一張|same room and style/i.test(text)) {
+    text = text
+      .replace(/^(請(幫我)?生成一張直式\s*4:5\s*的圖片[：:]?\s*)/i, '')
+      .replace(/^(please\s+generate\s+a\s+vertical\s+4:5\s+(editorial\s+)?(image|photograph)\s+of[：:]?\s*)/i, '');
     text = isChinese
-      ? `請幫我生成一張直式 4:5 的圖片：${text}`
-      : `Please generate a vertical 4:5 editorial image of: ${text}`;
+      ? `請幫我生成一張直式 4:5 的圖片，請嚴格延續上一張圖完全相同的房間場景、牆面與桌面材質、色調、光線方向與攝影風格，只改變鏡頭位置：${text}`
+      : `Please generate a vertical 4:5 editorial photograph, strictly keeping the exact same room, wall and table materials, color palette, lighting direction, and photography style as the previous image, only shifting the camera angle: ${text}`;
+  } else {
+    const hasVerb = /^(請(幫我)?生成|請畫|請製作|please\s+generate|generate\s+(an?\s+)?(vertical\s+)?(4:5\s+)?image|create\s+an?\s+image|draw\s+)/i.test(text);
+    if (!hasVerb) {
+      text = isChinese
+        ? `請幫我生成一張直式 4:5 的圖片：${text}`
+        : `Please generate a vertical 4:5 editorial photograph of: ${text}`;
+    }
+  }
+
+  if (!text.includes('固定風格鎖定') && !text.includes('Kinfolk')) {
+    text = `${text.replace(/[。.]$/, '')}。【固定風格鎖定：${anchor}】`;
   }
   return text;
 }
@@ -101,25 +118,31 @@ export function renderSocialMultiplier(container, state, app) {
 
         ${sub === 'ig' && ig ? `
           ${ig.visual_theme ? `<div class="source-banner cite-ok" style="margin-bottom: 12px;">🎨 <strong>本篇輪播視覺主題：</strong>${esc(ig.visual_theme)}</div>` : ''}
-          ${ig.inner_page_bg_prompt ? `
-            <div class="info-card" style="margin-bottom: 16px; background: #FAF9F6; border-left: 4px solid var(--primary);">
-              <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px;">
-                <strong style="font-size: 13px; color: var(--primary);">🖼️ 內頁共用極簡底圖指令（P2 ～ 倒數第 2 頁共用，在 Gemini 生 1 張即可套用全部內頁）</strong>
-                <button id="btn-copy-inner-bg" class="btn btn-primary btn-sm" style="white-space: nowrap;">📋 複製內頁底圖指令</button>
+          <div class="info-card" style="margin-bottom: 16px; background: #FAF9F6; border-left: 4px solid var(--primary);">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap;">
+              <div>
+                <strong style="font-size: 13.5px; color: var(--primary);">🔗 讓前後圖片風格 100% 統一的用法（同一個 Gemini 對話框兩步法）</strong>
+                <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+                  先點「① 複製封面圖指令」貼到 Gemini 生出第 1 張圖；接著<strong>在同一個 Gemini 對話框</strong>點「② 複製內頁延續指令」貼上，Gemini 就會沿用同一個房間、光線與色調拍出第 2 張內頁共用底圖！
+                </p>
               </div>
-              <div style="font-size: 12.5px; color: #374151; line-height: 1.55;">${esc(toGeminiImagePrompt(ig.inner_page_bg_prompt))}</div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button id="btn-copy-cover-prompt" class="btn btn-primary btn-sm" style="white-space: nowrap;">① 複製「封面圖」指令</button>
+                <button id="btn-copy-inner-bg" class="btn btn-accent btn-sm" style="white-space: nowrap;">② 複製「內頁共用圖」延續指令</button>
+              </div>
             </div>
-          ` : ''}
+          </div>
           <div class="carousel-deck">
             ${(ig.slides || []).map((s, i) => {
+              const isCover = i === 0;
               const rawPrompt = (s.visual_prompt && !s.visual_prompt.includes('同上')) ? s.visual_prompt : (ig.inner_page_bg_prompt || s.visual_prompt);
-              const displayPrompt = toGeminiImagePrompt(rawPrompt);
+              const displayPrompt = toGeminiImagePrompt(rawPrompt, { isContinuation: !isCover, styleAnchor: ig.style_anchor });
               return `
               <div class="carousel-slide-card">
                 <div>
                   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                     <span class="slide-num-badge">P.${esc(s.slide_num)}</span>
-                    <span style="font-size: 11px; color: var(--text-muted);">${i === 0 ? '🌟 視覺封面' : (i === (ig.slides.length - 1) ? '🎯 封底收尾' : '📝 文字內頁')}</span>
+                    <span style="font-size: 11px; color: var(--text-muted);">${isCover ? '🌟 鏡位 1：視覺封面' : (i === (ig.slides.length - 1) ? '🎯 鏡位 3：封底收尾' : '📝 鏡位 2：文字內頁（共用底圖）')}</span>
                   </div>
                   <div class="slide-title">${esc(s.title)}</div>
                   <div class="slide-body">${esc(s.subtitle)}</div>
@@ -196,11 +219,19 @@ export function renderSocialMultiplier(container, state, app) {
   container.querySelector('#btn-generate-multiplier')?.addEventListener('click', () => app.generateMultiplier(currentIdea.id));
 
   const copyText = (text, msg) => { navigator.clipboard.writeText(text || ''); app.showToast(msg); };
-  container.querySelector('#btn-copy-inner-bg')?.addEventListener('click', () => copyText(toGeminiImagePrompt(ig.inner_page_bg_prompt), '已複製內頁共用底圖指令'));
+  container.querySelector('#btn-copy-cover-prompt')?.addEventListener('click', () => {
+    const coverRaw = ig?.slides?.[0]?.visual_prompt || '';
+    copyText(toGeminiImagePrompt(coverRaw, { isContinuation: false, styleAnchor: ig?.style_anchor }), '已複製「① 封面圖」生圖指令');
+  });
+  container.querySelector('#btn-copy-inner-bg')?.addEventListener('click', () => {
+    const innerRaw = ig?.inner_page_bg_prompt || ig?.slides?.[1]?.visual_prompt || 'clean minimalist textured background';
+    copyText(toGeminiImagePrompt(innerRaw, { isContinuation: true, styleAnchor: ig?.style_anchor }), '已複製「② 內頁共用圖（延續上一張風格）」指令');
+  });
   container.querySelectorAll('.btn-copy-slide').forEach(b => b.addEventListener('click', () => {
-    const s = ig.slides[b.dataset.i];
+    const idx = Number(b.dataset.i);
+    const s = ig.slides[idx];
     const rawPrompt = (s.visual_prompt && !s.visual_prompt.includes('同上')) ? s.visual_prompt : (ig.inner_page_bg_prompt || s.visual_prompt);
-    copyText(toGeminiImagePrompt(rawPrompt), '已複製生圖指令');
+    copyText(toGeminiImagePrompt(rawPrompt, { isContinuation: idx > 0, styleAnchor: ig?.style_anchor }), '已複製生圖指令');
   }));
   container.querySelectorAll('.btn-copy-thread').forEach(b => b.addEventListener('click', () => copyText(threads[b.dataset.i].text, '已複製 Threads 貼文')));
   container.querySelector('#btn-copy-ig-caption')?.addEventListener('click', () => copyText(ig.caption, '已複製 Caption'));
