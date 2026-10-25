@@ -10,24 +10,33 @@ const LIMITS = { threads: 500, igCaption: 2200 };
 function toGeminiImagePrompt(raw) {
   if (!raw) return '';
   let text = String(raw).trim();
-  // Strip tags that cause Gemini chat router to fail or print text on image
+  // Strip negative / technical / "blank background" phrases that trigger Gemini's empty-content filter
   text = text
     .replace(/,?\s*no objects/gi, '')
     .replace(/,?\s*no text/gi, '')
     .replace(/,?\s*text-centric layout/gi, '')
+    .replace(/,?\s*aspect ratio\s*4:5/gi, '')
     .replace(/,?\s*1080\s*x\s*1350(\s*px)?/gi, '')
     .replace(/,?\s*4k\b/gi, '')
+    .replace(/沒有任何物品[，、]?/g, '')
+    .replace(/無雜物[，、]?/g, '')
+    .replace(/適合直接作為文字排版的底圖[。，]?/g, '')
     .replace(/\s{2,}/g, ' ')
     .replace(/,\s*,/g, ',')
     .replace(/,\s*$/g, '')
     .trim();
 
-  const hasVerb = /^(請(幫我)?生成|請畫|請製作|generate\s+(an?\s+)?(vertical\s+)?(4:5\s+)?image|create\s+an?\s+image|draw\s+)/i.test(text);
+  // If it's a legacy "textured background" prompt with no concrete subject, enrich it with organic light/shadow elements
+  if (/clean minimalist textured background/i.test(text)) {
+    return 'Please generate a vertical 4:5 editorial photograph of a warm beige plaster wall bathed in soft morning sunlight filtering through sheer linen curtains, casting gentle organic botanical shadows, with a single out-of-focus eucalyptus stem in the bottom corner, shallow depth of field, Kinfolk magazine aesthetic.';
+  }
+
+  const hasVerb = /^(請(幫我)?生成|請畫|請製作|please\s+generate|generate\s+(an?\s+)?(vertical\s+)?(4:5\s+)?image|create\s+an?\s+image|draw\s+)/i.test(text);
   if (!hasVerb) {
     const isChinese = /[\u4e00-\u9fff]/.test(text);
     text = isChinese
       ? `請幫我生成一張直式 4:5 的圖片：${text}`
-      : `Please generate a vertical 4:5 image of: ${text}`;
+      : `Please generate a vertical 4:5 editorial image of: ${text}`;
   }
   return text;
 }
