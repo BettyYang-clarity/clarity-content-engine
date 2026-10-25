@@ -30,9 +30,9 @@ ${masterArticle}
  */
 async function generateSocialMultiplier(idea, researchPack, masterArticle, onProgress = noop) {
   const ctx = sharedContext(idea, researchPack, masterArticle);
-  onProgress(1, 2, '同時生成 IG / FB / Threads 與 Blog');
+  onProgress(1, 2, '正在生成社群貼文（IG、FB、Threads）');
 
-  const shortFormTask = callGemini({
+  const shortForm = await callGemini({
     prompt: `
 請把已核准的母文章改寫成 Instagram 輪播、Facebook 貼文與 3 則 Threads。
 ${ctx}
@@ -64,7 +64,11 @@ ${SOURCE_RULES}
     includeLearning: true
   });
 
-  const blogTask = callGemini({
+  // Short pause to avoid triggering Gemini Free Tier RPM limit
+  await new Promise(r => setTimeout(r, 1500));
+  onProgress(2, 2, '正在生成 Blog 專欄文章');
+
+  const blog = await callGemini({
     prompt: `
 請把已核准的母文章改寫成一篇適合部落格與搜尋引擎的專欄文章。
 ${ctx}
@@ -86,9 +90,6 @@ ${SOURCE_RULES}
     jsonMode: true,
     includeLearning: true
   });
-
-  const [shortForm, blog] = await Promise.all([shortFormTask, blogTask]);
-  onProgress(2, 2, '整理並儲存');
 
   return {
     instagram: shortForm?.instagram || null,

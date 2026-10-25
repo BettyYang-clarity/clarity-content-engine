@@ -61,10 +61,10 @@ ${masterArticle}
     .map(tp => `${tp.time_est || ''} ${tp.segment || ''}\n  - ${(tp.speaking_triggers || []).join('\n  - ')}`)
     .join('\n');
 
-  // ---------- Steps 2 & 3 in parallel ----------
-  onProgress(2, 3, '撰寫逐字講稿、NotebookLM 筆記與 Show Notes');
+  // ---------- Steps 2 & 3 in sequence to avoid rate limits ----------
+  onProgress(2, 3, '撰寫逐字講稿與 NotebookLM 筆記');
 
-  const scriptTask = callGemini({
+  const scriptRes = await callGemini({
     prompt: `
 請依照大綱與母文章，撰寫完整錄音逐字稿與 NotebookLM 筆記。${materialRule}
 
@@ -93,7 +93,10 @@ ${masterArticle}
     includeLearning: true
   });
 
-  const showNotesTask = callGemini({
+  await new Promise(r => setTimeout(r, 1200));
+  onProgress(3, 3, '整理 Show Notes 與參考資料');
+
+  const showNotes = await callGemini({
     prompt: `
 請根據本集大綱與母文章，生成 Podcast 的 Show Notes。${materialRule}
 
@@ -124,9 +127,6 @@ ${masterArticle}
     temperature: 0.5,
     jsonMode: true
   });
-
-  const [scriptRes, showNotes] = await Promise.all([scriptTask, showNotesTask]);
-  onProgress(3, 3, '整理並儲存');
 
   return {
     titles: blueprint.titles || {},

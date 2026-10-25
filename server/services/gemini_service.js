@@ -122,7 +122,7 @@ async function generate({
   includeLearning = false,
   modelName = DEFAULT_MODEL,
   mediaResolution,
-  retries = 2
+  retries = 3
 }) {
   const apiKey = getApiKey();
   if (!apiKey) {
@@ -147,7 +147,12 @@ async function generate({
 
   let lastError;
   for (let attempt = 0; attempt <= retries; attempt++) {
-    if (attempt > 0) await sleep(1500 * attempt);
+    if (attempt > 0) {
+      // Exponential backoff with longer delay on 429 quota exhaustion (e.g. 3s, 6s, 12s)
+      const delay = (lastError?.status === 429) ? (3000 * Math.pow(2, attempt - 1)) : (1500 * attempt);
+      console.log(`[Gemini] 第 ${attempt} 次重試，等待 ${(delay / 1000).toFixed(1)} 秒...`);
+      await sleep(delay);
+    }
     try {
       const res = await fetch(`${API_BASE}/${modelName}:generateContent`, {
         method: 'POST',
@@ -157,9 +162,14 @@ async function generate({
 
       if (!res.ok) {
         const errText = await res.text();
-        const err = new Error(`Gemini API ${res.status}: ${errText.slice(0, 400)}`);
+        let message = `Gemini API ${res.status}: ${errText.slice(0, 400)}`;
+        if (res.status === 429) {
+          message = '已達 Gemini API 請求頻率或額度上限 (429)。系統正在自動重試，若持續出現請稍候 30-60 秒或至「設定」更換 API Key。';
+        }
+        const err = new Error(message);
         err.status = res.status;
-        // Retry only on rate limits / server errors
+        err.rawResponse = errText;
+        // Retry on rate limits / server errors
         if (res.status === 429 || res.status >= 500) { lastError = err; continue; }
         throw err;
       }
