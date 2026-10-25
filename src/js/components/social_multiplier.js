@@ -3,6 +3,35 @@ import { esc, renderMarkdown } from '../utils.js';
 // Platform text limits (characters)
 const LIMITS = { threads: 500, igCaption: 2200 };
 
+/**
+ * Ensure any visual prompt (including older saved ones) starts with an explicit
+ * image-generation verb and strips Midjourney-style tags that confuse Gemini chat.
+ */
+function toGeminiImagePrompt(raw) {
+  if (!raw) return '';
+  let text = String(raw).trim();
+  // Strip tags that cause Gemini chat router to fail or print text on image
+  text = text
+    .replace(/,?\s*no objects/gi, '')
+    .replace(/,?\s*no text/gi, '')
+    .replace(/,?\s*text-centric layout/gi, '')
+    .replace(/,?\s*1080\s*x\s*1350(\s*px)?/gi, '')
+    .replace(/,?\s*4k\b/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/,\s*,/g, ',')
+    .replace(/,\s*$/g, '')
+    .trim();
+
+  const hasVerb = /^(請(幫我)?生成|請畫|請製作|generate\s+(an?\s+)?(vertical\s+)?(4:5\s+)?image|create\s+an?\s+image|draw\s+)/i.test(text);
+  if (!hasVerb) {
+    const isChinese = /[\u4e00-\u9fff]/.test(text);
+    text = isChinese
+      ? `請幫我生成一張直式 4:5 的圖片：${text}`
+      : `Please generate a vertical 4:5 image of: ${text}`;
+  }
+  return text;
+}
+
 function lengthBadge(text, limit) {
   const n = [...(text || '')].length;
   const over = n > limit;
@@ -69,11 +98,14 @@ export function renderSocialMultiplier(container, state, app) {
                 <strong style="font-size: 13px; color: var(--primary);">🖼️ 內頁共用極簡底圖指令（P2 ～ 倒數第 2 頁共用，在 Gemini 生 1 張即可套用全部內頁）</strong>
                 <button id="btn-copy-inner-bg" class="btn btn-primary btn-sm" style="white-space: nowrap;">📋 複製內頁底圖指令</button>
               </div>
-              <div style="font-size: 12.5px; color: #374151; line-height: 1.55;">${esc(ig.inner_page_bg_prompt)}</div>
+              <div style="font-size: 12.5px; color: #374151; line-height: 1.55;">${esc(toGeminiImagePrompt(ig.inner_page_bg_prompt))}</div>
             </div>
           ` : ''}
           <div class="carousel-deck">
-            ${(ig.slides || []).map((s, i) => `
+            ${(ig.slides || []).map((s, i) => {
+              const rawPrompt = (s.visual_prompt && !s.visual_prompt.includes('同上')) ? s.visual_prompt : (ig.inner_page_bg_prompt || s.visual_prompt);
+              const displayPrompt = toGeminiImagePrompt(rawPrompt);
+              return `
               <div class="carousel-slide-card">
                 <div>
                   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
@@ -84,11 +116,12 @@ export function renderSocialMultiplier(container, state, app) {
                   <div class="slide-body">${esc(s.subtitle)}</div>
                 </div>
                 <div>
-                  <div class="slide-prompt-box"><strong>🎨 Gemini 生圖指令 (4:5)：</strong><br>${esc((s.visual_prompt && !s.visual_prompt.includes('同上')) ? s.visual_prompt : (ig.inner_page_bg_prompt || s.visual_prompt))}</div>
+                  <div class="slide-prompt-box"><strong>🎨 Gemini 生圖指令 (4:5)：</strong><br>${esc(displayPrompt)}</div>
                   <button class="btn btn-outline btn-sm btn-block btn-copy-slide" data-i="${i}" style="margin-top: 6px;">📋 複製此頁生圖指令</button>
                 </div>
               </div>
-            `).join('')}
+            `;
+            }).join('')}
           </div>
           <div class="info-card" style="margin-top: 16px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 8px;">
@@ -154,11 +187,11 @@ export function renderSocialMultiplier(container, state, app) {
   container.querySelector('#btn-generate-multiplier')?.addEventListener('click', () => app.generateMultiplier(currentIdea.id));
 
   const copyText = (text, msg) => { navigator.clipboard.writeText(text || ''); app.showToast(msg); };
-  container.querySelector('#btn-copy-inner-bg')?.addEventListener('click', () => copyText(ig.inner_page_bg_prompt, '已複製內頁共用底圖指令'));
+  container.querySelector('#btn-copy-inner-bg')?.addEventListener('click', () => copyText(toGeminiImagePrompt(ig.inner_page_bg_prompt), '已複製內頁共用底圖指令'));
   container.querySelectorAll('.btn-copy-slide').forEach(b => b.addEventListener('click', () => {
     const s = ig.slides[b.dataset.i];
-    const prompt = (s.visual_prompt && !s.visual_prompt.includes('同上')) ? s.visual_prompt : (ig.inner_page_bg_prompt || s.visual_prompt);
-    copyText(prompt, '已複製生圖指令');
+    const rawPrompt = (s.visual_prompt && !s.visual_prompt.includes('同上')) ? s.visual_prompt : (ig.inner_page_bg_prompt || s.visual_prompt);
+    copyText(toGeminiImagePrompt(rawPrompt), '已複製生圖指令');
   }));
   container.querySelectorAll('.btn-copy-thread').forEach(b => b.addEventListener('click', () => copyText(threads[b.dataset.i].text, '已複製 Threads 貼文')));
   container.querySelector('#btn-copy-ig-caption')?.addEventListener('click', () => copyText(ig.caption, '已複製 Caption'));
